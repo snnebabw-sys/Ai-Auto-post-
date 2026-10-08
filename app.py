@@ -60,14 +60,16 @@ else:
     client = None
 
 
-# IMPORTANT:
-# Set BASE_URL on Render to your actual Render backend URL.
+# ============================================================
+# BASE URL
+# ============================================================
+
+# Set this on Render:
 #
-# Example:
-# BASE_URL=https://afritoon-backend.onrender.com
+# BASE_URL=https://ai-auto-post-61wi.onrender.com
 #
-# If BASE_URL is not set, the code will still create
-# relative URLs as a fallback.
+# If it is missing, the backend will automatically use
+# the host that received /api/create-video.
 
 BASE_URL = os.getenv(
     "BASE_URL",
@@ -125,7 +127,6 @@ def update_job(
             )
 
         for key, value in extra.items():
-
             job[key] = value
 
 
@@ -145,21 +146,36 @@ def get_job(job_id):
 # BUILD PUBLIC VIDEO URL
 # ============================================================
 
-def public_video_url(filename):
+def build_video_url(
+    backend_url,
+    filename
+):
 
-    path = (
+    backend_url = (
+        backend_url or ""
+    ).rstrip("/")
+
+    return (
+        f"{backend_url}"
         f"/generated/"
         f"{filename}"
     )
 
-    if BASE_URL:
 
-        return (
-            f"{BASE_URL}"
-            f"{path}"
-        )
+def build_download_url(
+    backend_url,
+    filename
+):
 
-    return path
+    backend_url = (
+        backend_url or ""
+    ).rstrip("/")
+
+    return (
+        f"{backend_url}"
+        f"/download/"
+        f"{filename}"
+    )
 
 
 # ============================================================
@@ -199,7 +215,6 @@ def font(
     )
 
     if key in FONT_CACHE:
-
         return FONT_CACHE[key]
 
     candidates = []
@@ -658,8 +673,6 @@ def draw_calabash(
         width=3
     )
 
-    # OPENING
-
     draw.ellipse(
         [
             x - 42,
@@ -669,8 +682,6 @@ def draw_calabash(
         ],
         fill="#321B0B"
     )
-
-    # EYES
 
     draw.ellipse(
         [
@@ -691,8 +702,6 @@ def draw_calabash(
         ],
         fill="white"
     )
-
-    # MOUTH
 
     if talking:
 
@@ -731,42 +740,30 @@ def draw_background(
     scene_number
 ):
 
-    # SKY
-
     draw.rectangle(
         [0, 0, WIDTH, 560],
         fill="#87CEEB"
     )
-
-    # GROUND
 
     draw.rectangle(
         [0, 560, WIDTH, HEIGHT],
         fill="#D19A5A"
     )
 
-    # SUN
-
     draw.ellipse(
         [370, 55, 435, 120],
         fill="#FFD54A"
     )
-
-    # TREE TRUNK
 
     draw.rectangle(
         [55, 280, 85, 560],
         fill="#5C3A21"
     )
 
-    # TREE CROWN
-
     draw.ellipse(
         [10, 190, 130, 350],
         fill="#3F7D3A"
     )
-
-    # HOUSE
 
     draw.polygon(
         [
@@ -781,8 +778,6 @@ def draw_background(
         [305, 390, 470, 555],
         fill="#C77D45"
     )
-
-    # SCENE LABEL
 
     draw.text(
         (20, 20),
@@ -861,11 +856,13 @@ def create_voice(
     language="English"
 ):
 
-    # gTTS language mapping
-
     lang_map = {
 
         "English": "en",
+
+        "Simple English": "en",
+
+        "Nigerian Pidgin": "en",
 
         "Spanish": "es",
 
@@ -919,7 +916,6 @@ def get_audio_duration(
     )
 
     if not match:
-
         return 2.0
 
     hours = int(
@@ -948,7 +944,8 @@ def get_audio_duration(
 def create_video(
     job_id,
     story,
-    requested_duration
+    requested_duration,
+    backend_url
 ):
 
     work_dir = (
@@ -1002,18 +999,19 @@ def create_video(
             ):
 
                 if len(dialogue_items) >= MAX_DIALOGUE_LINES:
-
                     break
 
                 text = str(
                     line.get(
                         "text",
-                        ""
+                        line.get(
+                            "line",
+                            ""
+                        )
                     )
                 ).strip()
 
                 if not text:
-
                     continue
 
                 dialogue_items.append({
@@ -1159,29 +1157,18 @@ def create_video(
             [
                 ffmpeg,
                 "-y",
-
                 "-f",
                 "concat",
-
                 "-safe",
                 "0",
-
                 "-i",
-                str(
-                    concat_file
-                ),
-
+                str(concat_file),
                 "-vn",
-
                 "-c:a",
                 "libmp3lame",
-
                 "-q:a",
                 "6",
-
-                str(
-                    combined_audio
-                )
+                str(combined_audio)
             ],
             check=True,
             stdout=subprocess.DEVNULL,
@@ -1198,9 +1185,7 @@ def create_video(
         )
 
         target_duration = min(
-            float(
-                requested_duration
-            ),
+            float(requested_duration),
             max(
                 8.0,
                 total_audio_duration
@@ -1219,8 +1204,7 @@ def create_video(
         )
 
         total_frames = int(
-            target_duration
-            * FPS
+            target_duration * FPS
         )
 
         total_frames = max(
@@ -1230,21 +1214,13 @@ def create_video(
 
         frame_number = 0
 
-        # ----------------------------------------------------
-        # IMPORTANT:
-        # Calculate cumulative dialogue times.
-        # This fixes dialogue timing.
-        # ----------------------------------------------------
-
         current_dialogue_index = 0
 
         current_item = dialogue_items[0]
 
         elapsed_in_item = 0.0
 
-        frame_time = (
-            1.0 / FPS
-        )
+        frame_time = 1.0 / FPS
 
         # ====================================================
         # FRAME LOOP
@@ -1253,9 +1229,6 @@ def create_video(
         for frame_index in range(
             total_frames
         ):
-
-            # Move to next dialogue item
-            # when current audio finishes.
 
             while (
                 current_dialogue_index
@@ -1268,9 +1241,7 @@ def create_video(
             ):
 
                 elapsed_in_item -= (
-                    current_item[
-                        "duration"
-                    ]
+                    current_item["duration"]
                 )
 
                 current_dialogue_index += 1
@@ -1280,8 +1251,6 @@ def create_video(
                         current_dialogue_index
                     ]
                 )
-
-            # IMAGE
 
             img = Image.new(
                 "RGB",
@@ -1296,31 +1265,21 @@ def create_video(
                 img
             )
 
-            # BACKGROUND
-
             draw_background(
                 draw,
-                current_item[
-                    "scene"
-                ] + 1
+                current_item["scene"] + 1
             )
-
-            # TALKING
 
             talking = (
                 frame_index % 8
             ) < 5
 
             character = (
-                current_item[
-                    "character"
-                ]
+                current_item["character"]
             )
 
             emotion = (
-                current_item[
-                    "emotion"
-                ]
+                current_item["emotion"]
             )
 
             # =================================================
@@ -1445,26 +1404,19 @@ def create_video(
                     32,
                     box_top + 18
                 ),
-                str(
-                    character
-                ),
+                str(character),
                 fill="#FFD166",
                 font=speaker_font
             )
 
             lines = wrap_text(
                 draw,
-                current_item[
-                    "text"
-                ],
+                current_item["text"],
                 text_font,
                 WIDTH - 60
             )
 
-            y = (
-                box_top
-                + 55
-            )
+            y = box_top + 55
 
             for line in lines[:4]:
 
@@ -1498,17 +1450,9 @@ def create_video(
 
             frame_number += 1
 
-            elapsed_in_item += (
-                frame_time
-            )
+            elapsed_in_item += frame_time
 
-            # =================================================
-            # PROGRESS
-            # =================================================
-
-            if (
-                frame_index % FPS == 0
-            ):
+            if frame_index % FPS == 0:
 
                 render_progress = (
                     30
@@ -1566,14 +1510,9 @@ def create_video(
             "frame_%06d.jpg"
         )
 
-        # ====================================================
-        # FFmpeg
-        # ====================================================
-
         result = subprocess.run(
             [
                 ffmpeg,
-
                 "-y",
 
                 "-framerate",
@@ -1646,10 +1585,16 @@ def create_video(
             )
 
         # ====================================================
-        # PUBLIC URL
+        # BUILD URLS
         # ====================================================
 
-        video_url = public_video_url(
+        video_url = build_video_url(
+            backend_url,
+            output_file.name
+        )
+
+        download_url = build_download_url(
+            backend_url,
             output_file.name
         )
 
@@ -1670,7 +1615,7 @@ def create_video(
 
             video_url=video_url,
 
-            download_url=video_url,
+            download_url=download_url,
 
             filename=output_file.name,
 
@@ -1685,6 +1630,11 @@ def create_video(
         print(
             "VIDEO URL:",
             video_url
+        )
+
+        print(
+            "DOWNLOAD URL:",
+            download_url
         )
 
         # ====================================================
@@ -1728,7 +1678,6 @@ def create_video(
             )
 
         except Exception:
-
             pass
 
 
@@ -1750,11 +1699,12 @@ def home():
 
         "video_storage":
             str(OUTPUT_DIR)
+
     })
 
 
 # ============================================================
-# HEALTH CHECK
+# HEALTH
 # ============================================================
 
 @app.route("/health")
@@ -1772,7 +1722,11 @@ def health():
         "gemini":
             bool(
                 API_KEY
-            )
+            ),
+
+        "base_url":
+            BASE_URL or "automatic"
+
     })
 
 
@@ -1835,9 +1789,6 @@ def api_generate():
             duration,
             language
         )
-
-        # Store language inside story
-        # so the video creator can use it.
 
         story["language"] = language
 
@@ -1920,6 +1871,19 @@ def api_create_video():
 
         job_id = uuid.uuid4().hex
 
+        # ====================================================
+        # DETERMINE BACKEND URL
+        # ====================================================
+
+        backend_url = (
+            BASE_URL
+            or request.host_url.rstrip("/")
+        )
+
+        # ====================================================
+        # CREATE JOB
+        # ====================================================
+
         with JOB_LOCK:
 
             JOBS[job_id] = {
@@ -1937,8 +1901,15 @@ def api_create_video():
                     None,
 
                 "download_url":
+                    None,
+
+                "filename":
                     None
             }
+
+        # ====================================================
+        # START THREAD
+        # ====================================================
 
         thread = threading.Thread(
 
@@ -1947,7 +1918,8 @@ def api_create_video():
             args=(
                 job_id,
                 story,
-                duration
+                duration,
+                backend_url
             ),
 
             daemon=True
@@ -1964,6 +1936,7 @@ def api_create_video():
 
             "status":
                 "starting"
+
         })
 
     except Exception as e:
@@ -1987,7 +1960,8 @@ def api_create_video():
 # ============================================================
 
 @app.route(
-    "/api/video-status/<job_id>"
+    "/api/video-status/<job_id>",
+    methods=["GET"]
 )
 def video_status(job_id):
 
@@ -2036,17 +2010,29 @@ def video_status(job_id):
                 "download_url"
             ),
 
+        "filename":
+            job.get(
+                "filename"
+            ),
+
+        "file_size":
+            job.get(
+                "file_size"
+            ),
+
         "job":
             job
+
     })
 
 
 # ============================================================
-# GENERATED MP4 FILES
+# STREAM / PREVIEW MP4
 # ============================================================
 
 @app.route(
-    "/generated/<path:filename>"
+    "/generated/<path:filename>",
+    methods=["GET"]
 )
 def generated_file(filename):
 
@@ -2077,6 +2063,50 @@ def generated_file(filename):
         mimetype="video/mp4",
 
         max_age=0
+
+    )
+
+
+# ============================================================
+# DOWNLOAD MP4
+# ============================================================
+
+@app.route(
+    "/download/<path:filename>",
+    methods=["GET"]
+)
+def download_file(filename):
+
+    file_path = (
+        OUTPUT_DIR /
+        filename
+    )
+
+    if not file_path.exists():
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Video file not found."
+
+        }), 404
+
+    return send_from_directory(
+
+        OUTPUT_DIR,
+
+        filename,
+
+        as_attachment=True,
+
+        download_name=filename,
+
+        mimetype="video/mp4",
+
+        max_age=0
+
     )
 
 
@@ -2106,7 +2136,7 @@ if __name__ == "__main__":
     )
 
     print(
-        f"Base URL: {BASE_URL or 'NOT SET'}"
+        f"Base URL: {BASE_URL or 'AUTOMATIC'}"
     )
 
     print(
