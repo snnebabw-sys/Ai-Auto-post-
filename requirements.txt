@@ -1,0 +1,5 @@
+google-genai
+Pillow
+moviepy==1.0.3
+gTTS
+requests
