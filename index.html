@@ -1,319 +1,230 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AfriToon Studio</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-* {
-    box-sizing: border-box;
-}
+  <title>AfriToon Studio</title>
 
-body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f5f6f8;
-    color: #20242a;
-}
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-.container {
-    width: 100%;
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 30px 20px 50px;
-}
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: white;
+    }
 
-.header {
-    margin-bottom: 28px;
-}
+    .container {
+      width: 100%;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
 
-.logo {
-    font-size: 28px;
-    font-weight: 700;
-}
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
 
-.subtitle {
-    color: #707780;
-    margin-top: 7px;
-    font-size: 15px;
-}
+    .header h1 {
+      margin-bottom: 8px;
+      font-size: 30px;
+    }
 
-.card {
-    background: #ffffff;
-    border: 1px solid #e1e4e8;
-    border-radius: 12px;
-    padding: 22px;
-    margin-bottom: 18px;
-}
+    .header p {
+      color: #9ca3af;
+    }
 
-h2 {
-    margin-top: 0;
-    font-size: 19px;
-}
+    .card {
+      background: #1f2937;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
 
-label {
-    display: block;
-    margin: 17px 0 7px;
-    font-size: 14px;
-    font-weight: 600;
-}
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
 
-select,
-textarea {
-    width: 100%;
-    padding: 12px 13px;
-    border: 1px solid #ccd1d7;
-    border-radius: 8px;
-    background: #fff;
-    color: #20242a;
-    font-size: 15px;
-    outline: none;
-}
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #374151;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 18px;
+    }
 
-select:focus,
-textarea:focus {
-    border-color: #777f88;
-}
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
 
-textarea {
-    min-height: 105px;
-    resize: vertical;
-}
+    #script {
+      min-height: 280px;
+    }
 
-#script {
-    min-height: 230px;
-}
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #6366f1;
+    }
 
-.primary-button {
-    width: 100%;
-    margin-top: 20px;
-    padding: 13px 16px;
-    border: 0;
-    border-radius: 8px;
-    background: #22262b;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-}
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      background: #6366f1;
+      color: white;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
 
-.primary-button:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-}
+    button:hover {
+      background: #4f46e5;
+    }
 
-.status {
-    color: #626970;
-    line-height: 1.6;
-    font-size: 14px;
-    white-space: pre-wrap;
-}
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
-.story-box,
-.video-box {
-    display: none;
-}
+    .secondary {
+      background: #374151;
+      margin-top: 10px;
+    }
 
-.story-title {
-    font-size: 23px;
-    font-weight: 700;
-    margin-bottom: 10px;
-}
+    .secondary:hover {
+      background: #4b5563;
+    }
 
-.character {
-    background: #f7f8f9;
-    border: 1px solid #e5e7ea;
-    border-radius: 8px;
-    padding: 13px;
-    margin-top: 10px;
-    line-height: 1.6;
-    font-size: 14px;
-}
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      background: #111827;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
 
-.scene {
-    background: #f7f8f9;
-    border: 1px solid #e5e7ea;
-    border-radius: 8px;
-    padding: 15px;
-    margin-top: 12px;
-    font-size: 14px;
-}
+    .story {
+      background: #111827;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
 
-.dialogue {
-    margin-top: 9px;
-    padding: 9px 11px;
-    border-left: 3px solid #777f88;
-    background: #ffffff;
-    border-radius: 4px;
-    line-height: 1.5;
-}
+    video {
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 12px;
+      background: black;
+    }
 
-.video-box video {
-    width: 100%;
-    max-width: 500px;
-    display: block;
-    margin: 15px auto;
-    border-radius: 10px;
-    background: #000;
-}
+    .video-buttons {
+      display: none;
+      margin-top: 10px;
+    }
 
-.download-button,
-.open-button {
-    display: block;
-    width: 100%;
-    text-align: center;
-    text-decoration: none;
-    padding: 13px;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-}
+    .video-buttons button {
+      margin-top: 8px;
+    }
 
-.download-button {
-    background: #22262b;
-    color: #fff;
-    margin-top: 12px;
-}
+    .note {
+      color: #9ca3af;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: -8px;
+      margin-bottom: 18px;
+    }
 
-.open-button {
-    background: #f1f2f4;
-    color: #20242a;
-    margin-top: 10px;
-}
+    .success {
+      color: #86efac;
+    }
 
-.small-text {
-    color: #858c94;
-    font-size: 13px;
-    line-height: 1.5;
-}
+    .error {
+      color: #fca5a5;
+    }
 
-.error-text {
-    color: #b42318;
-}
-
-.success-text {
-    color: #18794e;
-}
-
-.hint {
-    color: #858c94;
-    font-size: 12px;
-    line-height: 1.5;
-    margin-top: 6px;
-}
-</style>
+    .warning {
+      color: #fde68a;
+    }
+  </style>
 </head>
 
 <body>
 
 <div class="container">
 
-    <div class="header">
-        <div class="logo">AfriToon Studio</div>
+  <div class="header">
+    <h1>🎬 AfriToon Studio</h1>
+    <p>Create your cartoon movie from a story or exact script.</p>
+  </div>
 
-        <div class="subtitle">
-            Create animated cartoon stories and videos.
-        </div>
+  <!-- STORY SETTINGS -->
+  <div class="card">
+
+    <label for="category">Category</label>
+
+    <select id="category">
+      <option value="Comedy">Comedy</option>
+      <option value="Drama">Drama</option>
+      <option value="Adventure">Adventure</option>
+      <option value="Family">Family</option>
+      <option value="Action">Action</option>
+      <option value="Romance">Romance</option>
+      <option value="Fantasy">Fantasy</option>
+      <option value="Mystery">Mystery</option>
+      <option value="African Story">African Story</option>
+      <option value="General">General</option>
+    </select>
+
+
+    <label for="duration">Duration</label>
+
+    <select id="duration">
+      <option value="30">30 seconds</option>
+      <option value="60">60 seconds</option>
+      <option value="180">3 minutes</option>
+      <option value="300">5 minutes</option>
+      <option value="600">10 minutes</option>
+    </select>
+
+
+    <label for="topic">Story Topic</label>
+
+    <textarea
+      id="topic"
+      placeholder="Example: Two friends discover a mysterious box..."
+    ></textarea>
+
+    <div class="note">
+      Leave this empty if you are providing an exact script below.
     </div>
 
 
-    <!-- SETTINGS -->
+    <label for="script">Exact Script</label>
 
-    <div class="card">
+    <textarea
+      id="script"
+      placeholder="Paste your exact story/script here...
 
-        <label for="category">
-            Story type
-        </label>
-
-        <select id="category">
-
-            <option value="surprise">
-                Surprise Me
-            </option>
-
-            <option value="love">
-                Love
-            </option>
-
-            <option value="comedy">
-                Comedy
-            </option>
-
-            <option value="education">
-                Education
-            </option>
-
-            <option value="history">
-                African History
-            </option>
-
-            <option value="family">
-                Family
-            </option>
-
-            <option value="animal">
-                Animal Adventure
-            </option>
-
-            <option value="love-comedy">
-                Love + Comedy
-            </option>
-
-            <option value="education-comedy">
-                Education + Comedy
-            </option>
-
-            <option value="history-comedy">
-                History + Comedy
-            </option>
-
-        </select>
-
-
-        <label for="duration">
-            Video length
-        </label>
-
-        <select id="duration">
-
-            <option value="30">
-                30 seconds
-            </option>
-
-            <option value="60">
-                1 minute
-            </option>
-
-        </select>
-
-
-        <!-- STORY IDEA -->
-
-        <label for="topic">
-            Story idea
-        </label>
-
-        <textarea
-            id="topic"
-            placeholder="Example: Two friends meet at a market and get into a funny situation."
-        ></textarea>
-
-
-        <div class="hint">
-            Use this if you want AI to create the story for you.
-        </div>
-
-
-        <!-- EXACT SCRIPT -->
-
-        <label for="script">
-            Exact script
-        </label>
-
-        <textarea
-            id="script"
-            placeholder="Example:
+Example:
 
 Scene 1:
 David is sitting in the living room.
@@ -325,1075 +236,902 @@ Sarah says: &quot;Hello David.&quot;
 David says: &quot;Hello Sarah.&quot;
 
 Scene 2:
-Sarah sits beside David."
-        ></textarea>
+Sarah sits beside David.
 
+They both laugh."
+    ></textarea>
 
-        <div class="hint">
-            If you enter an exact script, it will be used instead of the story idea.
-        </div>
-
-
-        <label for="language">
-            Language
-        </label>
-
-        <select id="language">
-
-            <option value="English">
-                English
-            </option>
-
-            <option value="Simple English">
-                Simple English
-            </option>
-
-            <option value="Nigerian Pidgin">
-                Nigerian Pidgin
-            </option>
-
-        </select>
-
-
-        <button
-            id="createButton"
-            class="primary-button"
-            onclick="createStory()"
-        >
-            Create video
-        </button>
-
+    <div class="note">
+      If an exact script is provided, AfriToon Studio will send it directly to
+      the backend instead of asking Gemini to create a new story.
     </div>
 
 
-    <!-- STATUS -->
+    <label for="language">Voice Language</label>
 
-    <div class="card">
+    <select id="language">
+      <option value="en">English</option>
+      <option value="en-ng">Nigerian English</option>
+      <option value="en-us">US English</option>
+      <option value="en-gb">UK English</option>
+    </select>
 
-        <h2>Progress</h2>
 
-        <div
-            id="status"
-            class="status"
-        >
-            Ready to create a video.
-        </div>
+    <button id="createBtn" onclick="createMovie()">
+      🎬 CREATE VIDEO
+    </button>
+
+  </div>
+
+
+  <!-- STATUS -->
+  <div class="card">
+
+    <h2>Production Status</h2>
+
+    <div id="status" class="status">
+      Ready to create your cartoon movie.
+    </div>
+
+  </div>
+
+
+  <!-- STORY -->
+  <div class="card" id="storyCard" style="display:none;">
+
+    <h2>📖 Story</h2>
+
+    <div id="storyOutput" class="story"></div>
+
+  </div>
+
+
+  <!-- VIDEO -->
+  <div class="card" id="videoCard" style="display:none;">
+
+    <h2>🎥 Your Cartoon Movie</h2>
+
+    <video
+      id="videoPlayer"
+      controls
+      playsinline
+    ></video>
+
+    <div class="video-buttons" id="videoButtons">
+
+      <button onclick="downloadVideo()">
+        ⬇️ Download Video
+      </button>
+
+      <button
+        class="secondary"
+        onclick="openVideo()"
+      >
+        🔗 Open Video
+      </button>
 
     </div>
 
-
-    <!-- STORY -->
-
-    <div
-        class="card story-box"
-        id="storyBox"
-    >
-
-        <h2>Story</h2>
-
-        <div id="storyContent"></div>
-
-    </div>
-
-
-    <!-- VIDEO -->
-
-    <div
-        class="card video-box"
-        id="videoBox"
-    >
-
-        <h2>Preview</h2>
-
-        <video
-            id="videoPreview"
-            controls
-            playsinline
-            preload="metadata"
-        ></video>
-
-
-        <a
-            id="downloadButton"
-            class="download-button"
-            href="#"
-        >
-            Download video
-        </a>
-
-
-        <a
-            id="openButton"
-            class="open-button"
-            href="#"
-            target="_blank"
-            rel="noopener"
-        >
-            Open video
-        </a>
-
-    </div>
-
-
-    <div class="card">
-
-        <p class="small-text">
-            You can either give AfriToon a story idea and let AI create
-            the story, or provide an exact script and let AfriToon use it.
-        </p>
-
-    </div>
+  </div>
 
 </div>
 
 
 <script>
 
-const BACKEND_URL =
+  // ============================================================
+  // BACKEND
+  // ============================================================
+
+  const API_BASE =
     "https://ai-auto-post-61wi.onrender.com";
 
 
-/* ============================================================
-   CREATE STORY / VIDEO
-============================================================ */
+  // ============================================================
+  // ELEMENTS
+  // ============================================================
 
-async function createStory() {
+  const statusBox =
+    document.getElementById("status");
+
+  const createBtn =
+    document.getElementById("createBtn");
+
+  const storyCard =
+    document.getElementById("storyCard");
+
+  const storyOutput =
+    document.getElementById("storyOutput");
+
+  const videoCard =
+    document.getElementById("videoCard");
+
+  const videoPlayer =
+    document.getElementById("videoPlayer");
+
+  const videoButtons =
+    document.getElementById("videoButtons");
+
+
+  let currentVideoUrl = "";
+
+
+  // ============================================================
+  // STATUS MESSAGE
+  // ============================================================
+
+  function setStatus(message, type = "") {
+
+    statusBox.textContent = message;
+
+    statusBox.className = "status";
+
+    if (type) {
+      statusBox.classList.add(type);
+    }
+  }
+
+
+  // ============================================================
+  // ESCAPE HTML
+  // ============================================================
+
+  function escapeHTML(value) {
+
+    if (value === null || value === undefined) {
+      return "";
+    }
+
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+
+  // ============================================================
+  // NORMALIZE VIDEO URL
+  // ============================================================
+
+  function normalizeVideoUrl(url) {
+
+    if (!url) {
+      return "";
+    }
+
+    if (url.startsWith("http://") ||
+        url.startsWith("https://")) {
+
+      return url;
+    }
+
+    if (!url.startsWith("/")) {
+      url = "/" + url;
+    }
+
+    return API_BASE + url;
+  }
+
+
+  // ============================================================
+  // CREATE MOVIE
+  // ============================================================
+
+  async function createMovie() {
 
     const category =
-        document.getElementById("category").value;
+      document.getElementById("category").value;
 
     const duration =
-        document.getElementById("duration").value;
+      Number(document.getElementById("duration").value);
 
     const topic =
-        document.getElementById("topic").value.trim();
+      document.getElementById("topic").value.trim();
 
     const script =
-        document.getElementById("script").value.trim();
+      document.getElementById("script").value.trim();
 
     const language =
-        document.getElementById("language").value;
-
-    const status =
-        document.getElementById("status");
-
-    const button =
-        document.getElementById("createButton");
-
-    const storyBox =
-        document.getElementById("storyBox");
-
-    const videoBox =
-        document.getElementById("videoBox");
+      document.getElementById("language").value;
 
 
-    /*
-     * IMPORTANT:
-     * At least one of topic or script is required.
-     */
+    // ==========================================================
+    // IMPORTANT:
+    // SCRIPT OR TOPIC MUST EXIST
+    // ==========================================================
 
     if (!topic && !script) {
 
-        status.className =
-            "status error-text";
+      setStatus(
+        "Please provide a topic or exact script.",
+        "error"
+      );
 
-        status.textContent =
-            "Please provide a story idea or an exact script.";
-
-        return;
+      return;
     }
 
 
-    button.disabled = true;
+    // ==========================================================
+    // RESET UI
+    // ==========================================================
 
-    button.textContent =
-        "Creating...";
+    createBtn.disabled = true;
 
-    storyBox.style.display =
-        "none";
+    createBtn.textContent =
+      "⏳ Creating...";
 
-    videoBox.style.display =
-        "none";
+    storyCard.style.display = "none";
 
-    status.className =
-        "status";
+    videoCard.style.display = "none";
 
-    status.textContent =
-        script
-            ? "Reading your exact script..."
-            : "Preparing your story...";
+    videoButtons.style.display = "none";
+
+    videoPlayer.removeAttribute("src");
+
+    currentVideoUrl = "";
+
+
+    // ==========================================================
+    // PAYLOAD
+    // ==========================================================
+
+    const payload = {
+
+      category: category,
+
+      topic: topic,
+
+      script: script,
+
+      duration: duration,
+
+      language: language,
+
+      style:
+        "2D cinematic cartoon animation, movie-like staging, expressive characters, dynamic camera shots, funny and entertaining"
+
+    };
+
+
+    console.log(
+      "Sending payload:",
+      payload
+    );
 
 
     try {
 
-        /*
-         * Send BOTH topic and script.
-         *
-         * The backend should give SCRIPT priority.
-         */
-
-        const response =
-            await fetch(
-                BACKEND_URL + "/api/generate",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        category:
-                            category,
-
-                        topic:
-                            topic,
-
-                        script:
-                            script,
-
-                        duration:
-                            Number(duration),
-
-                        language:
-                            language,
-
-                        style:
-                            "2D cinematic cartoon animation, funny and entertaining"
-
-                    })
-                }
-            );
+      setStatus(
+        script
+          ? "🎬 Sending your exact script to AfriToon Studio..."
+          : "🧠 Creating your story with Gemini..."
+      );
 
 
-        const data =
-            await parseJSON(response);
+      // ========================================================
+      // GENERATE STORY
+      // ========================================================
 
+      const response =
+        await fetch(
+          API_BASE + "/api/generate",
+          {
 
-        console.log(
-            "GENERATE RESPONSE:",
-            data
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify(payload)
+
+          }
         );
 
 
-        if (!response.ok) {
+      // ========================================================
+      // READ RESPONSE SAFELY
+      // ========================================================
 
-            throw new Error(
-                data.error ||
-                data.message ||
-                "Unable to create the story."
-            );
+      const rawText =
+        await response.text();
 
-        }
+      let data = {};
 
+      try {
 
-        if (
-            !data.success ||
-            !data.story
-        ) {
+        data =
+          JSON.parse(rawText);
 
-            throw new Error(
-                "No story was returned by the server."
-            );
+      } catch (jsonError) {
 
-        }
+        throw new Error(
+          "Server returned an invalid response: " +
+          rawText.substring(0, 500)
+        );
+      }
 
 
-        displayStory(
-            data.story
+      console.log(
+        "Generate response:",
+        data
+      );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          data.message ||
+          "Story generation failed."
+        );
+      }
+
+
+      // ========================================================
+      // STORY
+      // ========================================================
+
+      const story =
+        data.story ||
+        data.script ||
+        data.content ||
+        script;
+
+
+      if (story) {
+
+        storyOutput.textContent =
+          typeof story === "string"
+            ? story
+            : JSON.stringify(
+                story,
+                null,
+                2
+              );
+
+        storyCard.style.display =
+          "block";
+      }
+
+
+      // ========================================================
+      // FIND JOB ID
+      // ========================================================
+
+      const jobId =
+        data.job_id ||
+        data.jobId ||
+        data.id;
+
+
+      // ========================================================
+      // IF BACKEND RETURNS VIDEO DIRECTLY
+      // ========================================================
+
+      const directVideo =
+        data.video_url ||
+        data.videoUrl ||
+        data.url;
+
+
+      if (directVideo) {
+
+        showVideo(directVideo);
+
+        setStatus(
+          "✅ Video created successfully!",
+          "success"
+        );
+
+        return;
+      }
+
+
+      // ========================================================
+      // IF NO JOB ID
+      // ========================================================
+
+      if (!jobId) {
+
+        throw new Error(
+          "The server did not return a job ID."
+        );
+      }
+
+
+      // ========================================================
+      // CREATE VIDEO
+      // ========================================================
+
+      setStatus(
+        "🎬 Story ready. Starting cartoon video production..."
+      );
+
+
+      const videoResponse =
+        await fetch(
+          API_BASE + "/api/create-video",
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+
+                story: story,
+
+                duration: duration,
+
+                language: language,
+
+                style:
+                  "2D cinematic cartoon animation"
+
+              })
+
+          }
         );
 
 
-        status.textContent =
-            "Story prepared.\n\n" +
-            "Creating the video...\n" +
-            "Characters and scenes are being prepared.";
+      const videoRaw =
+        await videoResponse.text();
 
+      let videoData = {};
 
-        await createVideo(
-            data.story,
-            duration
+      try {
+
+        videoData =
+          JSON.parse(videoRaw);
+
+      } catch (error) {
+
+        throw new Error(
+          "Video creation returned an invalid response."
         );
+      }
+
+
+      console.log(
+        "Video response:",
+        videoData
+      );
+
+
+      if (!videoResponse.ok) {
+
+        throw new Error(
+          videoData.error ||
+          videoData.message ||
+          "Could not start video production."
+        );
+      }
+
+
+      const videoJobId =
+        videoData.job_id ||
+        videoData.jobId ||
+        videoData.id ||
+        jobId;
+
+
+      if (!videoJobId) {
+
+        throw new Error(
+          "No video job ID was returned."
+        );
+      }
+
+
+      await pollVideoStatus(
+        videoJobId
+      );
 
 
     } catch (error) {
 
-        console.error(
-            "CREATE ERROR:",
-            error
-        );
+      console.error(
+        "Create movie error:",
+        error
+      );
 
-
-        status.className =
-            "status error-text";
-
-
-        status.textContent =
-            "Something went wrong.\n\n" +
-            error.message;
-
+      setStatus(
+        "❌ " +
+        (error.message ||
+        "Something went wrong."),
+        "error"
+      );
 
     } finally {
 
-        button.disabled =
-            false;
+      createBtn.disabled =
+        false;
 
-        button.textContent =
-            "Create video";
-
+      createBtn.textContent =
+        "🎬 CREATE VIDEO";
     }
 
-}
+  }
 
 
-/* ============================================================
-   CREATE VIDEO
-============================================================ */
+  // ============================================================
+  // POLL VIDEO STATUS
+  // ============================================================
 
-async function createVideo(
-    story,
-    duration
-) {
-
-    const status =
-        document.getElementById("status");
-
-
-    status.className =
-        "status";
-
-
-    status.textContent =
-        "Creating your video...\n\n" +
-        "Preparing characters...\n" +
-        "Preparing voices...\n" +
-        "Rendering scenes...";
-
-
-    const response =
-        await fetch(
-            BACKEND_URL + "/api/create-video",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body: JSON.stringify({
-
-                    story:
-                        story,
-
-                    duration:
-                        Number(duration)
-
-                })
-            }
-        );
-
-
-    const data =
-        await parseJSON(response);
-
-
-    console.log(
-        "CREATE VIDEO RESPONSE:",
-        data
-    );
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            data.error ||
-            data.message ||
-            "Unable to start video creation."
-        );
-
-    }
-
-
-    if (!data.job_id) {
-
-        throw new Error(
-            "The server did not return a video job ID."
-        );
-
-    }
-
-
-    status.textContent =
-        "Video job started.\n\n" +
-        "Rendering your video...";
-
-
-    await monitorVideo(
-        data.job_id
-    );
-
-}
-
-
-/* ============================================================
-   MONITOR VIDEO
-============================================================ */
-
-async function monitorVideo(
-    jobId
-) {
-
-    const status =
-        document.getElementById("status");
-
+  async function pollVideoStatus(jobId) {
 
     let attempts = 0;
 
     const maxAttempts = 300;
 
-    const pollInterval = 2500;
-
 
     while (
-        attempts <
-        maxAttempts
+      attempts < maxAttempts
     ) {
 
-        attempts++;
+      attempts++;
 
 
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    pollInterval
-                )
-        );
+      try {
+
+        const response =
+          await fetch(
+            API_BASE +
+            "/api/video-status/" +
+            encodeURIComponent(jobId)
+          );
 
 
-        let response;
+        const raw =
+          await response.text();
 
+        let data = {};
 
         try {
 
-            response =
-                await fetch(
-                    BACKEND_URL +
-                    "/api/video-status/" +
-                    encodeURIComponent(jobId) +
-                    "?t=" +
-                    Date.now(),
-                    {
-                        method: "GET",
-                        cache: "no-store"
-                    }
-                );
+          data =
+            JSON.parse(raw);
 
+        } catch (error) {
 
-        } catch (networkError) {
-
-            console.error(
-                "STATUS NETWORK ERROR:",
-                networkError
-            );
-
-
-            status.textContent =
-                "Waiting for the video server...\n\n" +
-                "Attempt " +
-                attempts +
-                " of " +
-                maxAttempts;
-
-
-            continue;
-
+          throw new Error(
+            "Invalid status response from server."
+          );
         }
-
-
-        const data =
-            await parseJSON(response);
 
 
         console.log(
-            "VIDEO STATUS:",
-            data
+          "Video status:",
+          data
         );
 
 
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                data.message ||
-                "Unable to check video progress."
-            );
-
-        }
-
-
-        if (
-            data.status === "failed" ||
-            data.status === "error"
-        ) {
-
-            throw new Error(
-                data.error ||
-                data.message ||
-                "Video creation failed."
-            );
-
-        }
-
-
-        if (
-            data.status === "complete" ||
-            data.status === "completed" ||
-            data.status === "done" ||
-            data.status === "success"
-        ) {
-
-            const videoUrl =
-                data.video_url ||
-                data.url ||
-                data.video ||
-                data.file_url;
-
-
-            const downloadUrl =
-                data.download_url ||
-                videoUrl;
-
-
-            if (!videoUrl) {
-
-                status.textContent =
-                    "Video finished.\n\n" +
-                    "Waiting for the video file...";
-
-                continue;
-
-            }
-
-
-            status.className =
-                "status success-text";
-
-
-            status.textContent =
-                "Your video is ready.";
-
-
-            showVideo(
-                videoUrl,
-                downloadUrl
-            );
-
-
-            return;
-
-        }
+        const status =
+          String(
+            data.status ||
+            data.state ||
+            ""
+          ).toLowerCase();
 
 
         const progress =
-            data.progress !== undefined
-                ? "\nProgress: " +
-                  data.progress +
-                  "%"
-                : "";
+          data.progress ??
+          data.percent ??
+          "";
 
 
-        status.textContent =
-            "Creating your video...\n\n" +
-            (
-                data.message ||
-                "Rendering scenes..."
-            ) +
-            progress;
+        if (
+          status === "completed" ||
+          status === "complete" ||
+          status === "done" ||
+          status === "success"
+        ) {
 
+          const videoUrl =
+            data.video_url ||
+            data.videoUrl ||
+            data.url ||
+            data.output ||
+            data.video;
+
+
+          if (!videoUrl) {
+
+            throw new Error(
+              "Video completed but no video URL was returned."
+            );
+          }
+
+
+          showVideo(videoUrl);
+
+
+          setStatus(
+            "✅ Your cartoon movie is ready!",
+            "success"
+          );
+
+          return;
+        }
+
+
+        if (
+          status === "failed" ||
+          status === "error"
+        ) {
+
+          throw new Error(
+            data.error ||
+            data.message ||
+            "Video generation failed."
+          );
+        }
+
+
+        let message =
+          data.message ||
+          data.status ||
+          "Generating cartoon movie...";
+
+
+        if (progress !== "") {
+
+          message +=
+            "\nProgress: " +
+            progress +
+            "%";
+        }
+
+
+        setStatus(
+          "🎬 " + message
+        );
+
+
+        await sleep(3000);
+
+      } catch (error) {
+
+        throw error;
+      }
     }
 
 
     throw new Error(
-        "Video creation is taking longer than expected."
+      "Video generation timed out. The Render server may still be processing it."
     );
-
-}
-
-
-/* ============================================================
-   SHOW VIDEO
-============================================================ */
-
-function showVideo(
-    videoUrl,
-    downloadUrl
-) {
-
-    const videoBox =
-        document.getElementById("videoBox");
-
-    const video =
-        document.getElementById("videoPreview");
-
-    const download =
-        document.getElementById("downloadButton");
-
-    const open =
-        document.getElementById("openButton");
+  }
 
 
-    if (!videoUrl) {
+  // ============================================================
+  // SHOW VIDEO
+  // ============================================================
 
-        throw new Error(
-            "No video URL was returned."
-        );
+  function showVideo(url) {
 
+    currentVideoUrl =
+      normalizeVideoUrl(url);
+
+
+    if (!currentVideoUrl) {
+
+      throw new Error(
+        "Invalid video URL."
+      );
     }
 
 
-    let fullVideoUrl;
+    videoPlayer.src =
+      currentVideoUrl;
 
+    videoPlayer.load();
 
-    if (
-        videoUrl.startsWith("http://") ||
-        videoUrl.startsWith("https://")
-    ) {
 
-        fullVideoUrl =
-            videoUrl;
+    videoCard.style.display =
+      "block";
 
-    } else {
+    videoButtons.style.display =
+      "block";
 
-        if (
-            !videoUrl.startsWith("/")
-        ) {
 
-            videoUrl =
-                "/" + videoUrl;
+    videoCard.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
 
-        }
 
+  // ============================================================
+  // DOWNLOAD VIDEO
+  // ============================================================
 
-        fullVideoUrl =
-            BACKEND_URL + videoUrl;
+  async function downloadVideo() {
 
-    }
+    if (!currentVideoUrl) {
 
+      setStatus(
+        "No video is available yet.",
+        "error"
+      );
 
-    let fullDownloadUrl;
-
-
-    if (
-        downloadUrl &&
-        (
-            downloadUrl.startsWith("http://") ||
-            downloadUrl.startsWith("https://")
-        )
-    ) {
-
-        fullDownloadUrl =
-            downloadUrl;
-
-    } else if (downloadUrl) {
-
-        if (
-            !downloadUrl.startsWith("/")
-        ) {
-
-            downloadUrl =
-                "/" + downloadUrl;
-
-        }
-
-
-        fullDownloadUrl =
-            BACKEND_URL + downloadUrl;
-
-    } else {
-
-        fullDownloadUrl =
-            fullVideoUrl;
-
-    }
-
-
-    const previewUrl =
-        fullVideoUrl +
-        (
-            fullVideoUrl.includes("?")
-                ? "&"
-                : "?"
-        ) +
-        "v=" +
-        Date.now();
-
-
-    video.pause();
-
-    video.removeAttribute("src");
-
-    video.load();
-
-
-    video.src =
-        previewUrl;
-
-
-    download.href =
-        fullDownloadUrl;
-
-
-    download.setAttribute(
-        "download",
-        ""
-    );
-
-
-    open.href =
-        fullVideoUrl;
-
-
-    videoBox.style.display =
-        "block";
-
-
-    setTimeout(
-        () => {
-
-            videoBox.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-            });
-
-        },
-        100
-    );
-
-
-    video.onerror =
-        function () {
-
-            const status =
-                document.getElementById("status");
-
-
-            status.className =
-                "status error-text";
-
-
-            status.textContent =
-                "The MP4 was created, but the browser could not load it.\n\n" +
-                "Try the Open video button.";
-
-        };
-
-
-    video.onloadedmetadata =
-        function () {
-
-            const status =
-                document.getElementById("status");
-
-
-            status.className =
-                "status success-text";
-
-
-            status.textContent =
-                "Your video is ready.\n\n" +
-                "You can play it or download it.";
-
-        };
-
-}
-
-
-/* ============================================================
-   DISPLAY STORY
-============================================================ */
-
-function displayStory(
-    story
-) {
-
-    const storyBox =
-        document.getElementById("storyBox");
-
-    const storyContent =
-        document.getElementById("storyContent");
-
-
-    let html = "";
-
-
-    html += `
-        <div class="story-title">
-            ${escapeHTML(
-                story.title ||
-                "Untitled Story"
-            )}
-        </div>
-    `;
-
-
-    if (story.description) {
-
-        html += `
-            <p>
-                ${escapeHTML(
-                    story.description
-                )}
-            </p>
-        `;
-
-    }
-
-
-    if (
-        story.characters &&
-        Array.isArray(story.characters)
-    ) {
-
-        html += `
-            <h3>Characters</h3>
-        `;
-
-
-        story.characters.forEach(
-            character => {
-
-                html += `
-                    <div class="character">
-
-                        <strong>
-                            ${escapeHTML(
-                                character.name ||
-                                "Character"
-                            )}
-                        </strong>
-
-                        <br>
-
-                        Personality:
-                        ${escapeHTML(
-                            character.personality ||
-                            ""
-                        )}
-
-                        <br>
-
-                        Voice:
-                        ${escapeHTML(
-                            character.voice ||
-                            ""
-                        )}
-
-                    </div>
-                `;
-
-            }
-        );
-
-    }
-
-
-    if (
-        story.scenes &&
-        Array.isArray(story.scenes)
-    ) {
-
-        html += `
-            <h3 style="margin-top:22px;">
-                Scenes
-            </h3>
-        `;
-
-
-        story.scenes.forEach(
-            scene => {
-
-                html += `
-                    <div class="scene">
-
-                        <strong>
-                            Scene
-                            ${escapeHTML(
-                                scene.scene ||
-                                ""
-                            )}
-                        </strong>
-
-                        <p>
-                            ${escapeHTML(
-                                scene.location ||
-                                ""
-                            )}
-                        </p>
-
-                        <p>
-                            ${escapeHTML(
-                                scene.action ||
-                                scene.visual_action ||
-                                ""
-                            )}
-                        </p>
-                `;
-
-
-                if (
-                    scene.dialogue &&
-                    Array.isArray(scene.dialogue)
-                ) {
-
-                    scene.dialogue.forEach(
-                        line => {
-
-                            html += `
-                                <div class="dialogue">
-
-                                    <strong>
-                                        ${escapeHTML(
-                                            line.character ||
-                                            ""
-                                        )}
-                                    </strong>
-
-                                    :
-                                    ${escapeHTML(
-                                        line.text ||
-                                        line.line ||
-                                        ""
-                                    )}
-
-                                    <br>
-
-                                    <small>
-                                        Emotion:
-                                        ${escapeHTML(
-                                            line.emotion ||
-                                            ""
-                                        )}
-                                    </small>
-
-                                </div>
-                            `;
-
-                        }
-                    );
-
-                }
-
-
-                html += `
-                    </div>
-                `;
-
-            }
-        );
-
-    }
-
-
-    storyContent.innerHTML =
-        html;
-
-
-    storyBox.style.display =
-        "block";
-
-}
-
-
-/* ============================================================
-   JSON
-============================================================ */
-
-async function parseJSON(
-    response
-) {
-
-    const text =
-        await response.text();
-
-
-    if (!text) {
-
-        return {};
-
+      return;
     }
 
 
     try {
 
-        return JSON.parse(text);
+      setStatus(
+        "⬇️ Preparing video download..."
+      );
+
+
+      const response =
+        await fetch(
+          currentVideoUrl
+        );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          "Could not download the video."
+        );
+      }
+
+
+      const blob =
+        await response.blob();
+
+
+      const blobUrl =
+        URL.createObjectURL(blob);
+
+
+      const link =
+        document.createElement("a");
+
+
+      link.href =
+        blobUrl;
+
+      link.download =
+        "AfriToon-Movie.mp4";
+
+
+      document.body.appendChild(
+        link
+      );
+
+      link.click();
+
+      link.remove();
+
+
+      setTimeout(() => {
+
+        URL.revokeObjectURL(
+          blobUrl
+        );
+
+      }, 1000);
+
+
+      setStatus(
+        "✅ Download started.",
+        "success"
+      );
+
 
     } catch (error) {
 
-        console.error(
-            "Invalid JSON response:",
-            text
-        );
+      console.error(
+        "Download error:",
+        error
+      );
 
 
-        throw new Error(
-            "The server returned an invalid response."
-        );
+      // Fallback: open video URL
+      window.open(
+        currentVideoUrl,
+        "_blank"
+      );
 
+
+      setStatus(
+        "The direct download was blocked by the browser, so the video was opened instead.",
+        "warning"
+      );
+    }
+  }
+
+
+  // ============================================================
+  // OPEN VIDEO
+  // ============================================================
+
+  function openVideo() {
+
+    if (!currentVideoUrl) {
+
+      setStatus(
+        "No video is available.",
+        "error"
+      );
+
+      return;
     }
 
-}
+
+    window.open(
+      currentVideoUrl,
+      "_blank"
+    );
+  }
 
 
-/* ============================================================
-   HTML ESCAPE
-============================================================ */
+  // ============================================================
+  // SLEEP
+  // ============================================================
 
-function escapeHTML(
-    value
-) {
+  function sleep(ms) {
 
-    if (
-        value === undefined ||
-        value === null
-    ) {
-
-        return "";
-
-    }
-
-
-    return String(value)
-
-        .replace(
-            /&/g,
-            "&amp;"
+    return new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          ms
         )
+    );
+  }
 
-        .replace(
-            /</g,
-            "&lt;"
-        )
 
-        .replace(
-            />/g,
-            "&gt;"
-        )
+  // ============================================================
+  // CHECK BACKEND
+  // ============================================================
 
-        .replace(
-            /"/g,
-            "&quot;"
-        )
+  async function checkBackend() {
 
-        .replace(
-            /'/g,
-            "&#039;"
+    try {
+
+      const response =
+        await fetch(
+          API_BASE + "/health"
         );
 
-}
+
+      if (response.ok) {
+
+        console.log(
+          "AfriToon backend is online."
+        );
+
+      } else {
+
+        console.warn(
+          "Backend health check failed."
+        );
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "Backend health check error:",
+        error
+      );
+    }
+  }
+
+
+  checkBackend();
 
 </script>
 
