@@ -1,5 +1,5 @@
+Flask
+flask-cors
 google-genai
-Pillow
-moviepy==1.0.3
-gTTS
-requests
+python-dotenv
+gunicorn
