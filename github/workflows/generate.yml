@@ -1,0 +1,76 @@
+name: AfriToon Generate
+
+on:
+
+  workflow_dispatch:
+
+    inputs:
+
+      category:
+        description: "Story category"
+        required: true
+        default: "Surprise Me"
+
+      duration:
+        description: "Video duration"
+        required: true
+        default: "180"
+
+      topic:
+        description: "Optional story idea"
+        required: false
+        default: ""
+
+jobs:
+
+  generate:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 30
+
+    steps:
+
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Generate story
+        env:
+
+          GEMINI_API_KEY:
+            ${{ secrets.GEMINI_API_KEY }}
+
+          CATEGORY:
+            ${{ inputs.category }}
+
+          DURATION:
+            ${{ inputs.duration }}
+
+          TOPIC:
+            ${{ inputs.topic }}
+
+        run: |
+
+          python app.py
+
+      - name: Save generated story
+        uses: actions/upload-artifact@v4
+
+        with:
+          name: afritoon-story
+          path: output/story.json
