@@ -1,155 +1,161 @@
 import os
 import json
-import random
-
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
 from google import genai
 
+load_dotenv()
 
-API_KEY = os.environ.get("GEMINI_API_KEY")
+app = Flask(__name__)
+
+# Only allow your GitHub Pages website later.
+CORS(app)
+
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not API_KEY:
     raise RuntimeError("GEMINI_API_KEY is missing")
 
-
 client = genai.Client(api_key=API_KEY)
 
 
-categories = [
-    "Love",
-    "Comedy",
-    "Education",
-    "African History",
-    "Family",
-    "Animal Adventure",
-    "Love + Comedy",
-    "Education + Comedy",
-    "History + Comedy"
-]
+@app.route("/")
+def home():
+    return jsonify({
+        "status": "online",
+        "app": "AfriToon AI",
+        "message": "Cartoon backend is running"
+    })
 
 
-category = os.environ.get(
-    "CATEGORY",
-    random.choice(categories)
-)
+@app.route("/api/generate", methods=["POST"])
+def generate_story():
 
-duration = os.environ.get(
-    "DURATION",
-    "180"
-)
+    data = request.get_json(silent=True) or {}
 
-topic = os.environ.get(
-    "TOPIC",
-    ""
-)
+    category = data.get("category", "surprise")
+    topic = data.get("topic", "")
+    duration = data.get("duration", "30")
+    language = data.get("language", "en")
+    style = data.get("style", "funny")
 
+    # Safety limits for the first version
+    allowed_durations = ["30", "60"]
 
-prompt = f"""
-You are the head writer for an original African cartoon
-YouTube series.
+    if duration not in allowed_durations:
+        return jsonify({
+            "error": "For the free test version, use 30 or 60 seconds."
+        }), 400
 
-Create a completely ORIGINAL story.
+    prompt = f"""
+You are the story director for an original African cartoon series.
 
-Category:
-{category}
+Create a completely ORIGINAL short cartoon episode.
 
-Approximate video duration:
-{duration} seconds
+Category: {category}
+Topic: {topic or "Create an interesting original topic"}
+Duration: {duration} seconds
+Language: {language}
+Style: {style}
 
-Optional idea:
-{topic}
+The cartoon must contain:
 
-The story must be:
+- 2 to 4 original characters
+- Character personalities
+- Natural conversation
+- Funny or emotional reactions
+- A clear beginning
+- A problem/conflict
+- Dialogue between characters
+- A climax
+- A satisfying ending
+- Scene changes
+- Visual actions
+- Facial expressions
+- Body movements
+- African setting where appropriate
 
-- entertaining
-- funny when appropriate
-- emotional when appropriate
-- family friendly
-- culturally respectful
-- original
-- suitable for YouTube
-- designed for characters who actually TALK to one another
+IMPORTANT:
 
-Create 2 to 5 main characters.
+The characters must actually TALK to each other.
 
-Every character should have:
-- name
-- personality
-- age group
-- role in the story
+Do NOT make this a slideshow.
 
-The story must contain:
-- opening hook
-- conflict
-- character dialogue
-- funny or emotional moments
-- climax
-- satisfying ending
+Do NOT copy existing cartoons, characters, stories or scripts.
 
-For African history stories:
-Do not invent historical facts.
-Clearly separate fictional dialogue from historical facts.
+If the category is African History, separate historical facts
+from fictional dialogue and do not invent historical facts.
 
-Return JSON only:
+Return ONLY valid JSON.
 
-{
+Use this exact structure:
+
+{{
   "title": "",
   "description": "",
-  "characters": [],
+  "characters": [
+    {{
+      "name": "",
+      "gender": "",
+      "personality": "",
+      "voice": ""
+    }}
+  ],
   "scenes": [
-    {
+    {{
       "scene": 1,
       "location": "",
-      "visual": "",
-      "characters": [],
+      "visual_action": "",
       "dialogue": [
-        {
+        {{
           "character": "",
-          "line": ""
-        }
-      ],
-      "narration": "",
-      "duration": 8
-    }
+          "line": "",
+          "emotion": ""
+        }}
+      ]
+    }}
   ]
-}
+}}
 """
 
+    try:
 
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=prompt
-)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=prompt
+        )
+
+        text = response.text.strip()
+
+        # Remove markdown JSON fences if Gemini adds them
+        if text.startswith("```"):
+            text = text.replace("```json", "")
+            text = text.replace("```", "")
+            text = text.strip()
+
+        story = json.loads(text)
+
+        return jsonify({
+            "success": True,
+            "story": story
+        })
+
+    except json.JSONDecodeError:
+        return jsonify({
+            "success": False,
+            "error": "AI returned invalid story data."
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
-text = response.text.strip()
-
-if text.startswith("```"):
-    text = text.split("```", 2)[1]
-    text = text.replace("json", "", 1).strip()
-
-
-story = json.loads(text)
-
-
-os.makedirs("output", exist_ok=True)
-
-with open(
-    "output/story.json",
-    "w",
-    encoding="utf-8"
-) as file:
-
-    json.dump(
-        story,
-        file,
-        ensure_ascii=False,
-        indent=2
+if __name__ == "__main__":
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000))
     )
-
-
-print("Story created successfully.")
-
-print(
-    "Title:",
-    story["title"]
-)
