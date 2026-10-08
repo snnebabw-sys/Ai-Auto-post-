@@ -9,7 +9,6 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Only allow your GitHub Pages website later.
 CORS(app)
 
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -36,16 +35,17 @@ def generate_story():
 
     category = data.get("category", "surprise")
     topic = data.get("topic", "")
-    duration = data.get("duration", "30")
-    language = data.get("language", "en")
+    duration = str(data.get("duration", "60"))
+    language = data.get("language", "English")
     style = data.get("style", "funny")
 
-    # Safety limits for the first version
+    # Free test limit
     allowed_durations = ["30", "60"]
 
     if duration not in allowed_durations:
         return jsonify({
-            "error": "For the free test version, use 30 or 60 seconds."
+            "success": False,
+            "error": "For the first test, choose 30 or 60 seconds."
         }), 400
 
     prompt = f"""
@@ -59,18 +59,20 @@ Duration: {duration} seconds
 Language: {language}
 Style: {style}
 
+Create an entertaining story designed for a talking-character cartoon.
+
 The cartoon must contain:
 
 - 2 to 4 original characters
-- Character personalities
+- Different personalities
 - Natural conversation
 - Funny or emotional reactions
 - A clear beginning
-- A problem/conflict
+- A problem or conflict
 - Dialogue between characters
 - A climax
 - A satisfying ending
-- Scene changes
+- Multiple scenes
 - Visual actions
 - Facial expressions
 - Body movements
@@ -82,14 +84,17 @@ The characters must actually TALK to each other.
 
 Do NOT make this a slideshow.
 
-Do NOT copy existing cartoons, characters, stories or scripts.
+Do NOT copy existing cartoons, characters, stories, scripts,
+or copyrighted characters.
 
-If the category is African History, separate historical facts
-from fictional dialogue and do not invent historical facts.
+If the category is African History, clearly distinguish
+historical facts from fictional dialogue and do not invent facts.
+
+Make the dialogue natural and entertaining.
 
 Return ONLY valid JSON.
 
-Use this exact structure:
+Use exactly this structure:
 
 {{
   "title": "",
@@ -122,13 +127,13 @@ Use this exact structure:
     try:
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             contents=prompt
         )
 
         text = response.text.strip()
 
-        # Remove markdown JSON fences if Gemini adds them
+        # Remove markdown code fences if returned
         if text.startswith("```"):
             text = text.replace("```json", "")
             text = text.replace("```", "")
@@ -142,12 +147,14 @@ Use this exact structure:
         })
 
     except json.JSONDecodeError:
+
         return jsonify({
             "success": False,
-            "error": "AI returned invalid story data."
+            "error": "AI returned invalid JSON."
         }), 500
 
     except Exception as e:
+
         return jsonify({
             "success": False,
             "error": str(e)
@@ -155,6 +162,7 @@ Use this exact structure:
 
 
 if __name__ == "__main__":
+
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000))
