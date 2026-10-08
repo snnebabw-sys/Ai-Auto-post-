@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AfriToon AI</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #10141b;
+    color: white;
+}
+
+.container {
+    max-width: 850px;
+    margin: auto;
+    padding: 25px;
+}
+
+h1 {
+    font-size: 36px;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    color: #aab3c0;
+    margin-bottom: 25px;
+}
+
+.card {
+    background: #181e27;
+    border: 1px solid #303846;
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 18px;
+}
+
+label {
+    display: block;
+    margin: 15px 0 7px;
+}
+
+select,
+input,
+textarea {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: 1px solid #3b4554;
+    background: #0f141b;
+    color: white;
+    font-size: 16px;
+}
+
+textarea {
+    min-height: 100px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #ff3b30;
+    color: white;
+    font-size: 17px;
+    font-weight: bold;
+}
+
+button:active {
+    transform: scale(.98);
+}
+
+.status {
+    white-space: pre-wrap;
+    color: #c8d0da;
+    line-height: 1.6;
+}
+
+.warning {
+    color: #ffcc66;
+    font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🎬 AfriToon AI</h1>
+
+<div class="subtitle">
+Create original African cartoon stories with talking characters.
+</div>
+
+<div class="card">
+
+<label>Story type</label>
+
+<select id="category">
+    <option>Surprise Me 🎲</option>
+    <option>Love ❤️</option>
+    <option>Comedy 😂</option>
+    <option>Education 📚</option>
+    <option>African History 🌍</option>
+    <option>Family 👨‍👩‍👧</option>
+    <option>Animal Adventure 🦁</option>
+    <option>Love + Comedy ❤️😂</option>
+    <option>Education + Comedy 📚😂</option>
+    <option>History + Comedy 🌍😂</option>
+</select>
+
+<label>Video length</label>
+
+<select id="duration">
+    <option value="60">1 minute</option>
+    <option value="180">3 minutes</option>
+    <option value="300">5 minutes</option>
+</select>
+
+<label>Story idea (optional)</label>
+
+<textarea
+id="topic"
+placeholder="Example: A poor young man falls in love with a successful businesswoman...">
+</textarea>
+
+<label>Language</label>
+
+<select id="language">
+    <option value="English">English</option>
+    <option value="Simple English">Simple English</option>
+</select>
+
+<button onclick="createStory()">
+✨ CREATE CARTOON
+</button>
+
+</div>
+
+<div class="card">
+
+<h2>📺 Video status</h2>
+
+<div id="status" class="status">
+Ready.
+</div>
+
+</div>
+
+<div class="card">
+
+<p class="warning">
+Your YouTube and AI keys must never be placed inside this HTML file.
+They belong in GitHub Secrets.
+</p>
+
+</div>
+
+</div>
+
+<script>
+
+async function createStory() {
+
+    const category =
+        document.getElementById("category").value;
+
+    const duration =
+        document.getElementById("duration").value;
+
+    const topic =
+        document.getElementById("topic").value;
+
+    const language =
+        document.getElementById("language").value;
+
+    const status =
+        document.getElementById("status");
+
+    status.textContent =
+`Creating your ${category} story...
+
+The secure backend will:
+1. Write the story
+2. Create characters
+3. Create dialogue
+4. Generate scenes
+5. Generate voices
+6. Animate the characters
+7. Add music and subtitles
+8. Prepare the YouTube video
+
+Do not refresh the page.`;
+
+    /*
+      IMPORTANT:
+
+      Do not put a GitHub token here.
+
+      Your secure backend should trigger the
+      GitHub Actions workflow.
+
+      Example endpoint:
+
+      POST /api/create
+
+      {
+        category,
+        duration,
+        topic,
+        language
+      }
+    */
+
+    console.log({
+        category,
+        duration,
+        topic,
+        language
+    });
+}
+
+</script>
+
+</body>
+</html>
