@@ -73,6 +73,11 @@ button {
     color: white;
     font-size: 17px;
     font-weight: bold;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.6;
 }
 
 button:active {
@@ -88,6 +93,35 @@ button:active {
 .warning {
     color: #ffcc66;
     font-size: 14px;
+}
+
+.story-box {
+    display: none;
+}
+
+.story-title {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.character {
+    background: #10141b;
+    padding: 12px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.scene {
+    background: #10141b;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 12px;
+}
+
+.dialogue {
+    margin-top: 8px;
+    padding: 8px;
+    border-left: 3px solid #ff3b30;
 }
 </style>
 </head>
@@ -107,16 +141,16 @@ Create original African cartoon stories with talking characters.
 <label>Story type</label>
 
 <select id="category">
-    <option>Surprise Me 🎲</option>
-    <option>Love ❤️</option>
-    <option>Comedy 😂</option>
-    <option>Education 📚</option>
-    <option>African History 🌍</option>
-    <option>Family 👨‍👩‍👧</option>
-    <option>Animal Adventure 🦁</option>
-    <option>Love + Comedy ❤️😂</option>
-    <option>Education + Comedy 📚😂</option>
-    <option>History + Comedy 🌍😂</option>
+    <option value="surprise">Surprise Me 🎲</option>
+    <option value="love">Love ❤️</option>
+    <option value="comedy">Comedy 😂</option>
+    <option value="education">Education 📚</option>
+    <option value="history">African History 🌍</option>
+    <option value="family">Family 👨‍👩‍👧</option>
+    <option value="animal">Animal Adventure 🦁</option>
+    <option value="love-comedy">Love + Comedy ❤️😂</option>
+    <option value="education-comedy">Education + Comedy 📚😂</option>
+    <option value="history-comedy">History + Comedy 🌍😂</option>
 </select>
 
 <label>Video length</label>
@@ -131,17 +165,17 @@ Create original African cartoon stories with talking characters.
 
 <textarea
 id="topic"
-placeholder="Example: A poor young man falls in love with a successful businesswoman...">
-</textarea>
+placeholder="Example: A poor young man falls in love with a successful businesswoman..."></textarea>
 
 <label>Language</label>
 
 <select id="language">
     <option value="English">English</option>
     <option value="Simple English">Simple English</option>
+    <option value="Nigerian Pidgin">Nigerian Pidgin</option>
 </select>
 
-<button onclick="createStory()">
+<button id="createButton" onclick="createStory()">
 ✨ CREATE CARTOON
 </button>
 
@@ -149,7 +183,7 @@ placeholder="Example: A poor young man falls in love with a successful businessw
 
 <div class="card">
 
-<h2>📺 Video status</h2>
+<h2>📺 Status</h2>
 
 <div id="status" class="status">
 Ready.
@@ -157,18 +191,32 @@ Ready.
 
 </div>
 
+<div class="card story-box" id="storyBox">
+
+<h2>📖 Generated Story</h2>
+
+<div id="storyContent"></div>
+
+</div>
+
 <div class="card">
 
 <p class="warning">
-Your YouTube and AI keys must never be placed inside this HTML file.
-They belong in GitHub Secrets.
+🔐 Your Gemini and YouTube keys stay on the secure Render
+backend. Never put them inside this HTML file.
 </p>
 
 </div>
 
 </div>
 
+
 <script>
+
+/* YOUR RENDER BACKEND */
+const BACKEND_URL =
+    "https://ai-auto-post-61wi.onrender.com";
+
 
 async function createStory() {
 
@@ -187,47 +235,276 @@ async function createStory() {
     const status =
         document.getElementById("status");
 
+    const button =
+        document.getElementById("createButton");
+
+    const storyBox =
+        document.getElementById("storyBox");
+
+    const storyContent =
+        document.getElementById("storyContent");
+
+
+    button.disabled = true;
+
+    button.textContent =
+        "⏳ CREATING STORY...";
+
+    storyBox.style.display = "none";
+
+
     status.textContent =
-`Creating your ${category} story...
+`Connecting to AfriToon AI...
 
-The secure backend will:
-1. Write the story
-2. Create characters
-3. Create dialogue
-4. Generate scenes
-5. Generate voices
-6. Animate the characters
-7. Add music and subtitles
-8. Prepare the YouTube video
+🤖 Asking the AI to create your original story...`;
 
-Do not refresh the page.`;
 
-    /*
-      IMPORTANT:
+    try {
 
-      Do not put a GitHub token here.
+        const response = await fetch(
+            BACKEND_URL + "/api/generate",
+            {
+                method: "POST",
 
-      Your secure backend should trigger the
-      GitHub Actions workflow.
+                headers: {
+                    "Content-Type": "application/json"
+                },
 
-      Example endpoint:
+                body: JSON.stringify({
 
-      POST /api/create
+                    category: category,
 
-      {
-        category,
-        duration,
-        topic,
-        language
-      }
-    */
+                    topic: topic,
 
-    console.log({
-        category,
-        duration,
-        topic,
-        language
-    });
+                    duration: duration,
+
+                    language: language,
+
+                    style: "funny and entertaining"
+
+                })
+            }
+        );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "The backend returned an error."
+            );
+
+        }
+
+
+        if (!data.success || !data.story) {
+
+            throw new Error(
+                "The AI did not return a story."
+            );
+
+        }
+
+
+        displayStory(data.story);
+
+
+        status.textContent =
+`✅ STORY CREATED!
+
+The AI successfully generated the story.
+
+Next stage:
+🎭 Characters
+🎙️ Voices
+🎬 Animation
+🎵 Music
+📝 Subtitles
+📺 YouTube
+
+For now, we are testing the story engine first.`;
+
+
+    } catch (error) {
+
+        console.error(error);
+
+
+        status.textContent =
+`❌ ERROR
+
+${error.message}
+
+Check your Render logs and make sure:
+• GEMINI_API_KEY is added to Render
+• Render is showing LIVE
+• The backend is running`;
+
+
+    } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+            "✨ CREATE CARTOON";
+
+    }
+
+}
+
+
+function displayStory(story) {
+
+    const storyBox =
+        document.getElementById("storyBox");
+
+    const storyContent =
+        document.getElementById("storyContent");
+
+
+    let html = "";
+
+
+    html += `
+        <div class="story-title">
+            ${escapeHTML(story.title || "Untitled Story")}
+        </div>
+    `;
+
+
+    if (story.description) {
+
+        html += `
+            <p>
+                ${escapeHTML(story.description)}
+            </p>
+        `;
+
+    }
+
+
+    if (story.characters) {
+
+        html += `
+            <h3>🎭 Characters</h3>
+        `;
+
+
+        story.characters.forEach(character => {
+
+            html += `
+                <div class="character">
+
+                    <strong>
+                        ${escapeHTML(character.name)}
+                    </strong>
+
+                    <br>
+
+                    Personality:
+                    ${escapeHTML(character.personality || "")}
+
+                    <br>
+
+                    Voice:
+                    ${escapeHTML(character.voice || "")}
+
+                </div>
+            `;
+
+        });
+
+    }
+
+
+    if (story.scenes) {
+
+        html += `
+            <h3 style="margin-top:20px;">
+                🎬 Scenes
+            </h3>
+        `;
+
+
+        story.scenes.forEach(scene => {
+
+            html += `
+                <div class="scene">
+
+                    <strong>
+                        Scene ${scene.scene}
+                    </strong>
+
+                    <p>
+                        📍 ${escapeHTML(scene.location || "")}
+                    </p>
+
+                    <p>
+                        🎭 ${escapeHTML(scene.visual_action || "")}
+                    </p>
+            `;
+
+
+            if (scene.dialogue) {
+
+                scene.dialogue.forEach(line => {
+
+                    html += `
+                        <div class="dialogue">
+
+                            <strong>
+                                ${escapeHTML(line.character)}
+                            </strong>:
+
+                            ${escapeHTML(line.line)}
+
+                            <br>
+
+                            <small>
+                                Emotion:
+                                ${escapeHTML(line.emotion || "")}
+                            </small>
+
+                        </div>
+                    `;
+
+                });
+
+            }
+
+
+            html += `
+                </div>
+            `;
+
+        });
+
+    }
+
+
+    storyContent.innerHTML = html;
+
+    storyBox.style.display = "block";
+
+}
+
+
+function escapeHTML(value) {
+
+    if (value === undefined || value === null) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 </script>
