@@ -127,6 +127,8 @@
       margin-top: 15px;
       white-space: pre-wrap;
       line-height: 1.6;
+      max-height: 500px;
+      overflow-y: auto;
     }
 
     video {
@@ -164,6 +166,23 @@
     .warning {
       color: #fde68a;
     }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      background: #374151;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #6366f1;
+      transition: width 0.3s ease;
+    }
   </style>
 </head>
 
@@ -176,7 +195,11 @@
     <p>Create your cartoon movie from a story or exact script.</p>
   </div>
 
-  <!-- STORY SETTINGS -->
+
+  <!-- ======================================================
+       STORY SETTINGS
+       ====================================================== -->
+
   <div class="card">
 
     <label for="category">Category</label>
@@ -242,8 +265,8 @@ They both laugh."
     ></textarea>
 
     <div class="note">
-      If an exact script is provided, AfriToon Studio will send it directly to
-      the backend instead of asking Gemini to create a new story.
+      If an exact script is provided, the backend parser will use the script
+      directly and will not ask Gemini to rewrite it.
     </div>
 
 
@@ -254,6 +277,9 @@ They both laugh."
       <option value="en-ng">Nigerian English</option>
       <option value="en-us">US English</option>
       <option value="en-gb">UK English</option>
+      <option value="es">Spanish</option>
+      <option value="fr">French</option>
+      <option value="pt">Portuguese</option>
     </select>
 
 
@@ -264,7 +290,10 @@ They both laugh."
   </div>
 
 
-  <!-- STATUS -->
+  <!-- ======================================================
+       STATUS
+       ====================================================== -->
+
   <div class="card">
 
     <h2>Production Status</h2>
@@ -273,21 +302,45 @@ They both laugh."
       Ready to create your cartoon movie.
     </div>
 
+    <div id="progress" class="progress">
+      <div
+        id="progressBar"
+        class="progress-bar"
+      ></div>
+    </div>
+
   </div>
 
 
-  <!-- STORY -->
-  <div class="card" id="storyCard" style="display:none;">
+  <!-- ======================================================
+       STORY
+       ====================================================== -->
+
+  <div
+    class="card"
+    id="storyCard"
+    style="display:none;"
+  >
 
     <h2>📖 Story</h2>
 
-    <div id="storyOutput" class="story"></div>
+    <div
+      id="storyOutput"
+      class="story"
+    ></div>
 
   </div>
 
 
-  <!-- VIDEO -->
-  <div class="card" id="videoCard" style="display:none;">
+  <!-- ======================================================
+       VIDEO
+       ====================================================== -->
+
+  <div
+    class="card"
+    id="videoCard"
+    style="display:none;"
+  >
 
     <h2>🎥 Your Cartoon Movie</h2>
 
@@ -297,7 +350,11 @@ They both laugh."
       playsinline
     ></video>
 
-    <div class="video-buttons" id="videoButtons">
+
+    <div
+      class="video-buttons"
+      id="videoButtons"
+    >
 
       <button onclick="downloadVideo()">
         ⬇️ Download Video
@@ -352,19 +409,29 @@ They both laugh."
   const videoButtons =
     document.getElementById("videoButtons");
 
+  const progressBox =
+    document.getElementById("progress");
+
+  const progressBar =
+    document.getElementById("progressBar");
+
 
   let currentVideoUrl = "";
+  let currentDownloadUrl = "";
+  let currentJobId = "";
 
 
   // ============================================================
-  // STATUS MESSAGE
+  // STATUS
   // ============================================================
 
   function setStatus(message, type = "") {
 
-    statusBox.textContent = message;
+    statusBox.textContent =
+      message;
 
-    statusBox.className = "status";
+    statusBox.className =
+      "status";
 
     if (type) {
       statusBox.classList.add(type);
@@ -373,26 +440,47 @@ They both laugh."
 
 
   // ============================================================
-  // ESCAPE HTML
+  // PROGRESS
   // ============================================================
 
-  function escapeHTML(value) {
+  function setProgress(value) {
 
-    if (value === null || value === undefined) {
-      return "";
+    let number =
+      Number(value);
+
+    if (!Number.isFinite(number)) {
+      number = 0;
     }
 
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+    number =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          number
+        )
+      );
+
+    progressBox.style.display =
+      "block";
+
+    progressBar.style.width =
+      number + "%";
+  }
+
+
+  function hideProgress() {
+
+    progressBox.style.display =
+      "none";
+
+    progressBar.style.width =
+      "0%";
   }
 
 
   // ============================================================
-  // NORMALIZE VIDEO URL
+  // NORMALIZE URL
   // ============================================================
 
   function normalizeVideoUrl(url) {
@@ -401,14 +489,30 @@ They both laugh."
       return "";
     }
 
-    if (url.startsWith("http://") ||
-        url.startsWith("https://")) {
+    url =
+      String(url).trim();
+
+    if (
+      url.startsWith("http://") ||
+      url.startsWith("https://")
+    ) {
 
       return url;
     }
 
-    if (!url.startsWith("/")) {
-      url = "/" + url;
+    if (
+      url.startsWith("//")
+    ) {
+
+      return "https:" + url;
+    }
+
+    if (
+      !url.startsWith("/")
+    ) {
+
+      url =
+        "/" + url;
     }
 
     return API_BASE + url;
@@ -417,29 +521,48 @@ They both laugh."
 
   // ============================================================
   // CREATE MOVIE
+  //
+  // IMPORTANT:
+  // Your Python /api/generate ALREADY creates the video job.
+  //
+  // Therefore:
+  // DO NOT call /api/create-video after /api/generate.
   // ============================================================
 
   async function createMovie() {
 
     const category =
-      document.getElementById("category").value;
+      document
+        .getElementById("category")
+        .value;
 
     const duration =
-      Number(document.getElementById("duration").value);
+      Number(
+        document
+          .getElementById("duration")
+          .value
+      );
 
     const topic =
-      document.getElementById("topic").value.trim();
+      document
+        .getElementById("topic")
+        .value
+        .trim();
 
     const script =
-      document.getElementById("script").value.trim();
+      document
+        .getElementById("script")
+        .value
+        .trim();
 
     const language =
-      document.getElementById("language").value;
+      document
+        .getElementById("language")
+        .value;
 
 
     // ==========================================================
-    // IMPORTANT:
-    // SCRIPT OR TOPIC MUST EXIST
+    // VALIDATION
     // ==========================================================
 
     if (!topic && !script) {
@@ -454,72 +577,107 @@ They both laugh."
 
 
     // ==========================================================
-    // RESET UI
+    // RESET
     // ==========================================================
 
-    createBtn.disabled = true;
+    createBtn.disabled =
+      true;
 
     createBtn.textContent =
       "⏳ Creating...";
 
-    storyCard.style.display = "none";
+    storyCard.style.display =
+      "none";
 
-    videoCard.style.display = "none";
+    videoCard.style.display =
+      "none";
 
-    videoButtons.style.display = "none";
+    videoButtons.style.display =
+      "none";
 
-    videoPlayer.removeAttribute("src");
+    videoPlayer.removeAttribute(
+      "src"
+    );
 
-    currentVideoUrl = "";
+    currentVideoUrl =
+      "";
+
+    currentDownloadUrl =
+      "";
+
+    currentJobId =
+      "";
+
+    hideProgress();
 
 
     // ==========================================================
-    // PAYLOAD
+    // EXACT PAYLOAD FOR YOUR PYTHON
     // ==========================================================
 
     const payload = {
 
-      category: category,
+      category:
+        category,
 
-      topic: topic,
+      topic:
+        topic,
 
-      script: script,
+      script:
+        script,
 
-      duration: duration,
+      duration:
+        duration,
 
-      language: language,
-
-      style:
-        "2D cinematic cartoon animation, movie-like staging, expressive characters, dynamic camera shots, funny and entertaining"
+      language:
+        language
 
     };
 
 
     console.log(
-      "Sending payload:",
+      "AfriToon request:",
       payload
     );
 
 
     try {
 
-      setStatus(
-        script
-          ? "🎬 Sending your exact script to AfriToon Studio..."
-          : "🧠 Creating your story with Gemini..."
-      );
+      if (script) {
+
+        setStatus(
+          "🎬 Sending your exact script to AfriToon Studio..."
+        );
+
+      } else {
+
+        setStatus(
+          "🧠 Gemini is creating your cartoon story..."
+        );
+
+      }
 
 
       // ========================================================
-      // GENERATE STORY
+      // /api/generate
+      //
+      // Your Python:
+      //
+      // 1. Reads topic/script
+      // 2. Parses exact script OR asks Gemini
+      // 3. Creates job
+      // 4. Starts create_video() in background
+      // 5. Returns job_id + story
       // ========================================================
 
       const response =
         await fetch(
-          API_BASE + "/api/generate",
+          API_BASE +
+          "/api/generate",
           {
 
-            method: "POST",
+            method:
+              "POST",
 
             headers: {
               "Content-Type":
@@ -527,15 +685,13 @@ They both laugh."
             },
 
             body:
-              JSON.stringify(payload)
+              JSON.stringify(
+                payload
+              )
 
           }
         );
 
-
-      // ========================================================
-      // READ RESPONSE SAFELY
-      // ========================================================
 
       const rawText =
         await response.text();
@@ -545,13 +701,14 @@ They both laugh."
       try {
 
         data =
-          JSON.parse(rawText);
+          JSON.parse(
+            rawText
+          );
 
-      } catch (jsonError) {
+      } catch (error) {
 
         throw new Error(
-          "Server returned an invalid response: " +
-          rawText.substring(0, 500)
+          "The server returned an invalid response."
         );
       }
 
@@ -566,8 +723,7 @@ They both laugh."
 
         throw new Error(
           data.error ||
-          data.message ||
-          "Story generation failed."
+          "Movie creation failed."
         );
       }
 
@@ -577,22 +733,29 @@ They both laugh."
       // ========================================================
 
       const story =
-        data.story ||
-        data.script ||
-        data.content ||
-        script;
+        data.story;
 
 
       if (story) {
 
-        storyOutput.textContent =
-          typeof story === "string"
-            ? story
-            : JSON.stringify(
-                story,
-                null,
-                2
-              );
+        if (
+          typeof story ===
+          "string"
+        ) {
+
+          storyOutput.textContent =
+            story;
+
+        } else {
+
+          storyOutput.textContent =
+            JSON.stringify(
+              story,
+              null,
+              2
+            );
+
+        }
 
         storyCard.style.display =
           "block";
@@ -600,41 +763,12 @@ They both laugh."
 
 
       // ========================================================
-      // FIND JOB ID
+      // JOB ID
       // ========================================================
 
       const jobId =
-        data.job_id ||
-        data.jobId ||
-        data.id;
+        data.job_id;
 
-
-      // ========================================================
-      // IF BACKEND RETURNS VIDEO DIRECTLY
-      // ========================================================
-
-      const directVideo =
-        data.video_url ||
-        data.videoUrl ||
-        data.url;
-
-
-      if (directVideo) {
-
-        showVideo(directVideo);
-
-        setStatus(
-          "✅ Video created successfully!",
-          "success"
-        );
-
-        return;
-      }
-
-
-      // ========================================================
-      // IF NO JOB ID
-      // ========================================================
 
       if (!jobId) {
 
@@ -644,112 +778,50 @@ They both laugh."
       }
 
 
-      // ========================================================
-      // CREATE VIDEO
-      // ========================================================
-
-      setStatus(
-        "🎬 Story ready. Starting cartoon video production..."
-      );
-
-
-      const videoResponse =
-        await fetch(
-          API_BASE + "/api/create-video",
-          {
-
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-
-                story: story,
-
-                duration: duration,
-
-                language: language,
-
-                style:
-                  "2D cinematic cartoon animation"
-
-              })
-
-          }
-        );
-
-
-      const videoRaw =
-        await videoResponse.text();
-
-      let videoData = {};
-
-      try {
-
-        videoData =
-          JSON.parse(videoRaw);
-
-      } catch (error) {
-
-        throw new Error(
-          "Video creation returned an invalid response."
-        );
-      }
-
-
-      console.log(
-        "Video response:",
-        videoData
-      );
-
-
-      if (!videoResponse.ok) {
-
-        throw new Error(
-          videoData.error ||
-          videoData.message ||
-          "Could not start video production."
-        );
-      }
-
-
-      const videoJobId =
-        videoData.job_id ||
-        videoData.jobId ||
-        videoData.id ||
+      currentJobId =
         jobId;
 
 
-      if (!videoJobId) {
+      // ========================================================
+      // IMPORTANT:
+      //
+      // Python already started the rendering thread.
+      //
+      // We now ONLY poll the status endpoint.
+      // ========================================================
 
-        throw new Error(
-          "No video job ID was returned."
-        );
-      }
+      setStatus(
+        "🎬 Movie production started..."
+      );
+
+      setProgress(
+        data.progress || 0
+      );
 
 
       await pollVideoStatus(
-        videoJobId
+        jobId
       );
 
 
     } catch (error) {
 
       console.error(
-        "Create movie error:",
+        "AfriToon error:",
         error
       );
 
       setStatus(
         "❌ " +
-        (error.message ||
-        "Something went wrong."),
+        (
+          error.message ||
+          "Something went wrong."
+        ),
         "error"
       );
+
+      hideProgress();
+
 
     } finally {
 
@@ -758,6 +830,7 @@ They both laugh."
 
       createBtn.textContent =
         "🎬 CREATE VIDEO";
+
     }
 
   }
@@ -765,150 +838,271 @@ They both laugh."
 
   // ============================================================
   // POLL VIDEO STATUS
+  //
+  // Matches Python:
+  //
+  // /api/video-status/<job_id>
+  //
+  // statuses:
+  // queued
+  // rendering
+  // encoding
+  // complete
+  // error
   // ============================================================
 
-  async function pollVideoStatus(jobId) {
+  async function pollVideoStatus(
+    jobId
+  ) {
 
-    let attempts = 0;
+    let attempts =
+      0;
 
-    const maxAttempts = 300;
+    // 20 minutes maximum polling
+    const maxAttempts =
+      400;
 
 
     while (
-      attempts < maxAttempts
+      attempts <
+      maxAttempts
     ) {
 
       attempts++;
 
 
+      const response =
+        await fetch(
+          API_BASE +
+          "/api/video-status/" +
+          encodeURIComponent(
+            jobId
+          )
+        );
+
+
+      const raw =
+        await response.text();
+
+      let data = {};
+
       try {
 
-        const response =
-          await fetch(
-            API_BASE +
-            "/api/video-status/" +
-            encodeURIComponent(jobId)
+        data =
+          JSON.parse(
+            raw
           );
-
-
-        const raw =
-          await response.text();
-
-        let data = {};
-
-        try {
-
-          data =
-            JSON.parse(raw);
-
-        } catch (error) {
-
-          throw new Error(
-            "Invalid status response from server."
-          );
-        }
-
-
-        console.log(
-          "Video status:",
-          data
-        );
-
-
-        const status =
-          String(
-            data.status ||
-            data.state ||
-            ""
-          ).toLowerCase();
-
-
-        const progress =
-          data.progress ??
-          data.percent ??
-          "";
-
-
-        if (
-          status === "completed" ||
-          status === "complete" ||
-          status === "done" ||
-          status === "success"
-        ) {
-
-          const videoUrl =
-            data.video_url ||
-            data.videoUrl ||
-            data.url ||
-            data.output ||
-            data.video;
-
-
-          if (!videoUrl) {
-
-            throw new Error(
-              "Video completed but no video URL was returned."
-            );
-          }
-
-
-          showVideo(videoUrl);
-
-
-          setStatus(
-            "✅ Your cartoon movie is ready!",
-            "success"
-          );
-
-          return;
-        }
-
-
-        if (
-          status === "failed" ||
-          status === "error"
-        ) {
-
-          throw new Error(
-            data.error ||
-            data.message ||
-            "Video generation failed."
-          );
-        }
-
-
-        let message =
-          data.message ||
-          data.status ||
-          "Generating cartoon movie...";
-
-
-        if (progress !== "") {
-
-          message +=
-            "\nProgress: " +
-            progress +
-            "%";
-        }
-
-
-        setStatus(
-          "🎬 " + message
-        );
-
-
-        await sleep(3000);
 
       } catch (error) {
 
-        throw error;
+        throw new Error(
+          "Invalid status response from server."
+        );
       }
+
+
+      console.log(
+        "Movie status:",
+        data
+      );
+
+
+      // ========================================================
+      // HTTP ERROR
+      // ========================================================
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          "Could not check movie status."
+        );
+      }
+
+
+      // ========================================================
+      // STATUS
+      // ========================================================
+
+      const status =
+        String(
+          data.status ||
+          ""
+        ).toLowerCase();
+
+
+      const progress =
+        Number(
+          data.progress || 0
+        );
+
+
+      setProgress(
+        progress
+      );
+
+
+      // ========================================================
+      // COMPLETE
+      // ========================================================
+
+      if (
+        status ===
+        "complete"
+      ) {
+
+        const videoUrl =
+          data.video_url;
+
+        const downloadUrl =
+          data.download_url;
+
+
+        if (!videoUrl) {
+
+          throw new Error(
+            "Movie completed but the server did not return video_url."
+          );
+        }
+
+
+        currentVideoUrl =
+          normalizeVideoUrl(
+            videoUrl
+          );
+
+
+        currentDownloadUrl =
+          normalizeVideoUrl(
+            downloadUrl ||
+            videoUrl
+          );
+
+
+        showVideo(
+          currentVideoUrl
+        );
+
+
+        setProgress(
+          100
+        );
+
+
+        setStatus(
+          "✅ Your cartoon movie is ready!",
+          "success"
+        );
+
+
+        return;
+      }
+
+
+      // ========================================================
+      // ERROR
+      // ========================================================
+
+      if (
+        status ===
+        "error"
+      ) {
+
+        throw new Error(
+          data.message ||
+          "Movie generation failed."
+        );
+      }
+
+
+      // ========================================================
+      // QUEUED
+      // ========================================================
+
+      if (
+        status ===
+        "queued"
+      ) {
+
+        setStatus(
+          "⏳ Movie job is queued..."
+        );
+
+      }
+
+
+      // ========================================================
+      // RENDERING
+      // ========================================================
+
+      else if (
+        status ===
+        "rendering"
+      ) {
+
+        setStatus(
+          "🎨 " +
+          (
+            data.message ||
+            "Rendering cartoon movie..."
+          )
+        );
+
+      }
+
+
+      // ========================================================
+      // ENCODING
+      // ========================================================
+
+      else if (
+        status ===
+        "encoding"
+      ) {
+
+        setStatus(
+          "🎞️ " +
+          (
+            data.message ||
+            "Encoding MP4 video..."
+          )
+        );
+
+      }
+
+
+      // ========================================================
+      // OTHER
+      // ========================================================
+
+      else {
+
+        setStatus(
+          "🎬 " +
+          (
+            data.message ||
+            "Processing movie..."
+          )
+        );
+
+      }
+
+
+      // ========================================================
+      // WAIT
+      // ========================================================
+
+      await sleep(
+        3000
+      );
+
     }
 
 
     throw new Error(
-      "Video generation timed out. The Render server may still be processing it."
+      "Movie generation is taking longer than expected. The Render server may still be processing it."
     );
+
   }
 
 
@@ -916,13 +1110,17 @@ They both laugh."
   // SHOW VIDEO
   // ============================================================
 
-  function showVideo(url) {
+  function showVideo(
+    url
+  ) {
 
-    currentVideoUrl =
-      normalizeVideoUrl(url);
+    const normalized =
+      normalizeVideoUrl(
+        url
+      );
 
 
-    if (!currentVideoUrl) {
+    if (!normalized) {
 
       throw new Error(
         "Invalid video URL."
@@ -930,8 +1128,12 @@ They both laugh."
     }
 
 
+    currentVideoUrl =
+      normalized;
+
+
     videoPlayer.src =
-      currentVideoUrl;
+      normalized;
 
     videoPlayer.load();
 
@@ -944,26 +1146,49 @@ They both laugh."
 
 
     videoCard.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+      behavior:
+        "smooth",
+
+      block:
+        "start"
     });
+
   }
 
 
   // ============================================================
-  // DOWNLOAD VIDEO
+  // DOWNLOAD
+  //
+  // IMPORTANT:
+  // Your Python has a separate:
+  //
+  // /download/<filename>
+  //
+  // endpoint with as_attachment=True.
   // ============================================================
 
   async function downloadVideo() {
 
-    if (!currentVideoUrl) {
+    if (
+      !currentDownloadUrl
+    ) {
 
-      setStatus(
-        "No video is available yet.",
-        "error"
-      );
+      if (
+        currentVideoUrl
+      ) {
 
-      return;
+        currentDownloadUrl =
+          currentVideoUrl;
+
+      } else {
+
+        setStatus(
+          "No video is available yet.",
+          "error"
+        );
+
+        return;
+      }
     }
 
 
@@ -974,37 +1199,27 @@ They both laugh."
       );
 
 
-      const response =
-        await fetch(
-          currentVideoUrl
-        );
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          "Could not download the video."
-        );
-      }
-
-
-      const blob =
-        await response.blob();
-
-
-      const blobUrl =
-        URL.createObjectURL(blob);
-
+      // ========================================================
+      // Use the Python download endpoint directly.
+      // ========================================================
 
       const link =
-        document.createElement("a");
+        document.createElement(
+          "a"
+        );
 
 
       link.href =
-        blobUrl;
+        currentDownloadUrl;
 
       link.download =
         "AfriToon-Movie.mp4";
+
+      link.target =
+        "_blank";
+
+      link.rel =
+        "noopener";
 
 
       document.body.appendChild(
@@ -1016,17 +1231,8 @@ They both laugh."
       link.remove();
 
 
-      setTimeout(() => {
-
-        URL.revokeObjectURL(
-          blobUrl
-        );
-
-      }, 1000);
-
-
       setStatus(
-        "✅ Download started.",
+        "✅ Download started. On iPhone, check the Files app if it does not appear in Photos.",
         "success"
       );
 
@@ -1039,18 +1245,19 @@ They both laugh."
       );
 
 
-      // Fallback: open video URL
       window.open(
-        currentVideoUrl,
+        currentDownloadUrl,
         "_blank"
       );
 
 
       setStatus(
-        "The direct download was blocked by the browser, so the video was opened instead.",
+        "The video download page was opened.",
         "warning"
       );
+
     }
+
   }
 
 
@@ -1060,7 +1267,9 @@ They both laugh."
 
   function openVideo() {
 
-    if (!currentVideoUrl) {
+    if (
+      !currentVideoUrl
+    ) {
 
       setStatus(
         "No video is available.",
@@ -1075,6 +1284,7 @@ They both laugh."
       currentVideoUrl,
       "_blank"
     );
+
   }
 
 
@@ -1082,7 +1292,9 @@ They both laugh."
   // SLEEP
   // ============================================================
 
-  function sleep(ms) {
+  function sleep(
+    ms
+  ) {
 
     return new Promise(
       resolve =>
@@ -1091,6 +1303,7 @@ They both laugh."
           ms
         )
     );
+
   }
 
 
@@ -1104,14 +1317,27 @@ They both laugh."
 
       const response =
         await fetch(
-          API_BASE + "/health"
+          API_BASE +
+          "/health"
         );
 
 
-      if (response.ok) {
+      if (
+        response.ok
+      ) {
+
+        const data =
+          await response.json();
+
 
         console.log(
-          "AfriToon backend is online."
+          "AfriToon backend online:",
+          data
+        );
+
+
+        setStatus(
+          "🟢 AfriToon Studio is ready."
         );
 
       } else {
@@ -1119,6 +1345,7 @@ They both laugh."
         console.warn(
           "Backend health check failed."
         );
+
       }
 
     } catch (error) {
@@ -1127,9 +1354,15 @@ They both laugh."
         "Backend health check error:",
         error
       );
+
     }
+
   }
 
+
+  // ============================================================
+  // START
+  // ============================================================
 
   checkBackend();
 
