@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>AfriToon AI</title>
+<title>AfriToon Studio</title>
 
 <style>
 * {
@@ -13,119 +13,142 @@
 
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: #10141b;
-    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f5f6f8;
+    color: #20242a;
 }
 
 .container {
-    max-width: 850px;
-    margin: auto;
-    padding: 25px;
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 30px 20px 50px;
 }
 
-h1 {
-    font-size: 36px;
-    margin-bottom: 5px;
+.header {
+    margin-bottom: 28px;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
 }
 
 .subtitle {
-    color: #aab3c0;
-    margin-bottom: 25px;
+    color: #707780;
+    margin-top: 7px;
+    font-size: 15px;
 }
 
 .card {
-    background: #181e27;
-    border: 1px solid #303846;
-    border-radius: 18px;
-    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-radius: 12px;
+    padding: 22px;
     margin-bottom: 18px;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 19px;
 }
 
 label {
     display: block;
-    margin: 15px 0 7px;
+    margin: 17px 0 7px;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 select,
-input,
 textarea {
     width: 100%;
-    padding: 13px;
-    border-radius: 10px;
-    border: 1px solid #3b4554;
-    background: #0f141b;
-    color: white;
-    font-size: 16px;
+    padding: 12px 13px;
+    border: 1px solid #ccd1d7;
+    border-radius: 8px;
+    background: #fff;
+    color: #20242a;
+    font-size: 15px;
+    outline: none;
+}
+
+select:focus,
+textarea:focus {
+    border-color: #777f88;
 }
 
 textarea {
-    min-height: 100px;
+    min-height: 105px;
+    resize: vertical;
 }
 
-button {
+.primary-button {
     width: 100%;
-    padding: 15px;
-    margin-top: 18px;
+    margin-top: 20px;
+    padding: 13px 16px;
     border: 0;
-    border-radius: 10px;
-    background: #ff3b30;
-    color: white;
-    font-size: 17px;
-    font-weight: bold;
+    border-radius: 8px;
+    background: #22262b;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
 }
 
-button:disabled {
-    opacity: 0.6;
+.primary-button:hover {
+    background: #111417;
 }
 
-button:active {
-    transform: scale(.98);
+.primary-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .status {
-    white-space: pre-wrap;
-    color: #c8d0da;
+    color: #626970;
     line-height: 1.6;
-}
-
-.warning {
-    color: #ffcc66;
     font-size: 14px;
+    white-space: pre-wrap;
 }
 
-.story-box {
+.story-box,
+.video-box {
     display: none;
 }
 
 .story-title {
-    font-size: 24px;
+    font-size: 23px;
+    font-weight: 700;
     margin-bottom: 10px;
 }
 
 .character {
-    background: #10141b;
-    padding: 12px;
-    border-radius: 10px;
+    background: #f7f8f9;
+    border: 1px solid #e5e7ea;
+    border-radius: 8px;
+    padding: 13px;
     margin-top: 10px;
+    line-height: 1.6;
+    font-size: 14px;
 }
 
 .scene {
-    background: #10141b;
+    background: #f7f8f9;
+    border: 1px solid #e5e7ea;
+    border-radius: 8px;
     padding: 15px;
-    border-radius: 10px;
     margin-top: 12px;
+    font-size: 14px;
 }
 
 .dialogue {
-    margin-top: 8px;
-    padding: 8px;
-    border-left: 3px solid #ff3b30;
-}
-
-.video-box {
-    display: none;
+    margin-top: 9px;
+    padding: 9px 11px;
+    border-left: 3px solid #777f88;
+    background: #ffffff;
+    border-radius: 4px;
+    line-height: 1.5;
 }
 
 .video-box video {
@@ -133,20 +156,32 @@ button:active {
     max-width: 500px;
     display: block;
     margin: 15px auto;
-    border-radius: 14px;
-    background: black;
+    border-radius: 10px;
+    background: #000;
 }
 
 .download-button {
     display: block;
+    width: 100%;
     text-align: center;
     text-decoration: none;
-    background: #2ecc71;
-    color: white;
-    padding: 14px;
-    border-radius: 10px;
-    font-weight: bold;
-    margin-top: 15px;
+    background: #22262b;
+    color: #fff;
+    padding: 13px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 12px;
+}
+
+.download-button:hover {
+    background: #111417;
+}
+
+.small-text {
+    color: #858c94;
+    font-size: 13px;
+    line-height: 1.5;
 }
 </style>
 </head>
@@ -155,103 +190,136 @@ button:active {
 
 <div class="container">
 
-<h1>🎬 AfriToon AI</h1>
+    <div class="header">
+        <div class="logo">AfriToon Studio</div>
 
-<div class="subtitle">
-Create original African cartoon stories with talking characters.
-</div>
+        <div class="subtitle">
+            Create short animated stories and videos.
+        </div>
+    </div>
 
-<div class="card">
 
-<label>Story type</label>
+    <div class="card">
 
-<select id="category">
-    <option value="surprise">Surprise Me 🎲</option>
-    <option value="love">Love ❤️</option>
-    <option value="comedy">Comedy 😂</option>
-    <option value="education">Education 📚</option>
-    <option value="history">African History 🌍</option>
-    <option value="family">Family 👨‍👩‍👧</option>
-    <option value="animal">Animal Adventure 🦁</option>
-    <option value="love-comedy">Love + Comedy ❤️😂</option>
-    <option value="education-comedy">Education + Comedy 📚😂</option>
-    <option value="history-comedy">History + Comedy 🌍😂</option>
-</select>
+        <label for="category">
+            Story type
+        </label>
 
-<label>Video length</label>
+        <select id="category">
+            <option value="surprise">Surprise Me</option>
+            <option value="love">Love</option>
+            <option value="comedy">Comedy</option>
+            <option value="education">Education</option>
+            <option value="history">African History</option>
+            <option value="family">Family</option>
+            <option value="animal">Animal Adventure</option>
+            <option value="love-comedy">Love + Comedy</option>
+            <option value="education-comedy">Education + Comedy</option>
+            <option value="history-comedy">History + Comedy</option>
+        </select>
 
-<select id="duration">
-    <option value="30">30 seconds</option>
-    <option value="60">1 minute</option>
-</select>
 
-<label>Story idea (optional)</label>
+        <label for="duration">
+            Video length
+        </label>
 
-<textarea
-id="topic"
-placeholder="Example: A poor young man falls in love with a successful businesswoman..."></textarea>
+        <select id="duration">
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+        </select>
 
-<label>Language</label>
 
-<select id="language">
-    <option value="English">English</option>
-    <option value="Simple English">Simple English</option>
-    <option value="Nigerian Pidgin">Nigerian Pidgin</option>
-</select>
+        <label for="topic">
+            Story idea
+        </label>
 
-<button id="createButton" onclick="createStory()">
-✨ CREATE CARTOON
-</button>
+        <textarea
+            id="topic"
+            placeholder="Describe your story idea, or leave this field empty."></textarea>
 
-</div>
 
-<div class="card">
+        <label for="language">
+            Language
+        </label>
 
-<h2>📺 Status</h2>
+        <select id="language">
+            <option value="English">English</option>
+            <option value="Simple English">Simple English</option>
+            <option value="Nigerian Pidgin">Nigerian Pidgin</option>
+        </select>
 
-<div id="status" class="status">
-Ready.
-</div>
 
-</div>
+        <button
+            id="createButton"
+            class="primary-button"
+            onclick="createStory()">
 
-<div class="card story-box" id="storyBox">
+            Create video
 
-<h2>📖 Generated Story</h2>
+        </button>
 
-<div id="storyContent"></div>
+    </div>
 
-</div>
 
-<!-- VIDEO PREVIEW -->
+    <div class="card">
 
-<div class="card video-box" id="videoBox">
+        <h2>Progress</h2>
 
-<h2>🎬 Cartoon Preview</h2>
+        <div
+            id="status"
+            class="status">
 
-<video
-    id="videoPreview"
-    controls
-    playsinline>
-</video>
+            Ready to create a video.
 
-<a
-    id="downloadButton"
-    class="download-button"
-    download>
-    ⬇️ Download Video
-</a>
+        </div>
 
-</div>
+    </div>
 
-<div class="card">
 
-<p class="warning">
-🔐 Your Gemini and YouTube keys stay on the secure Render
-backend. Never put them inside this HTML file.
-</p>
+    <div
+        class="card story-box"
+        id="storyBox">
 
-</div>
+        <h2>Story</h2>
+
+        <div id="storyContent"></div>
+
+    </div>
+
+
+    <div
+        class="card video-box"
+        id="videoBox">
+
+        <h2>Preview</h2>
+
+        <video
+            id="videoPreview"
+            controls
+            playsinline>
+        </video>
+
+
+        <a
+            id="downloadButton"
+            class="download-button"
+            download>
+
+            Download video
+
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <p class="small-text">
+            Videos are created from the story settings you provide.
+            You can preview the finished video before saving it.
+        </p>
+
+    </div>
 
 </div>
 
@@ -292,41 +360,52 @@ async function createStory() {
     button.disabled = true;
 
     button.textContent =
-        "⏳ CREATING...";
+        "Creating...";
 
-    storyBox.style.display = "none";
+    storyBox.style.display =
+        "none";
 
-    videoBox.style.display = "none";
+    videoBox.style.display =
+        "none";
 
 
     status.textContent =
-`Connecting to AfriToon AI...
-
-🤖 Creating your original cartoon story...`;
+        "Preparing your story...";
 
 
     try {
 
-        const response = await fetch(
-            BACKEND_URL + "/api/generate",
-            {
-                method: "POST",
+        const response =
+            await fetch(
+                BACKEND_URL + "/api/generate",
+                {
+                    method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-                body: JSON.stringify({
+                    body: JSON.stringify({
 
-                    category: category,
-                    topic: topic,
-                    duration: duration,
-                    language: language,
-                    style: "funny and entertaining"
+                        category:
+                            category,
 
-                })
-            }
-        );
+                        topic:
+                            topic,
+
+                        duration:
+                            duration,
+
+                        language:
+                            language,
+
+                        style:
+                            "funny and entertaining"
+
+                    })
+                }
+            );
 
 
         const data =
@@ -337,33 +416,35 @@ async function createStory() {
 
             throw new Error(
                 data.error ||
-                "The backend returned an error."
+                "Unable to create the story."
             );
 
         }
 
 
-        if (!data.success || !data.story) {
+        if (
+            !data.success ||
+            !data.story
+        ) {
 
             throw new Error(
-                "The AI did not return a story."
+                "No story was returned."
             );
 
         }
 
 
-        displayStory(data.story);
+        displayStory(
+            data.story
+        );
 
 
         status.textContent =
-`✅ STORY CREATED!
-
-🎭 Preparing characters...
-🎙️ Preparing voices...
-🎬 Starting animation...`;
+            "Story prepared.\n\n" +
+            "Creating the video...\n" +
+            "Characters and scenes are being prepared.";
 
 
-        // START VIDEO CREATION
         await createVideo(
             data.story,
             duration
@@ -374,59 +455,60 @@ async function createStory() {
 
         console.error(error);
 
-
         status.textContent =
-`❌ ERROR
-
-${error.message}
-
-Check your Render logs.`;
-
+            "Something went wrong.\n\n" +
+            error.message;
 
     } finally {
 
-        button.disabled = false;
+        button.disabled =
+            false;
 
         button.textContent =
-            "✨ CREATE CARTOON";
+            "Create video";
 
     }
 
 }
 
 
-async function createVideo(story, duration) {
+async function createVideo(
+    story,
+    duration
+) {
 
     const status =
-        document.getElementById("status");
+        document.getElementById(
+            "status"
+        );
 
 
     status.textContent =
-`🎬 VIDEO GENERATION STARTED
-
-🎭 Characters
-🎙️ Voices
-👄 Talking animation
-🎵 Music
-📝 Subtitles
-
-Please wait...`;
+        "Creating your video...\n\n" +
+        "Preparing characters...\n" +
+        "Preparing voices...\n" +
+        "Rendering scenes...";
 
 
     const response =
         await fetch(
-            BACKEND_URL + "/api/create-video",
+            BACKEND_URL +
+            "/api/create-video",
             {
                 method: "POST",
 
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type":
+                        "application/json"
                 },
 
                 body: JSON.stringify({
 
-                    story: story,
-                    duration: Number(duration)
+                    story:
+                        story,
+
+                    duration:
+                        Number(duration)
 
                 })
             }
@@ -441,7 +523,7 @@ Please wait...`;
 
         throw new Error(
             data.error ||
-            "Video generation could not start."
+            "Unable to start video creation."
         );
 
     }
@@ -450,21 +532,27 @@ Please wait...`;
     if (!data.job_id) {
 
         throw new Error(
-            "The backend did not return a video job ID."
+            "No video job was created."
         );
 
     }
 
 
-    await monitorVideo(data.job_id);
+    await monitorVideo(
+        data.job_id
+    );
 
 }
 
 
-async function monitorVideo(jobId) {
+async function monitorVideo(
+    jobId
+) {
 
     const status =
-        document.getElementById("status");
+        document.getElementById(
+            "status"
+        );
 
 
     let attempts = 0;
@@ -472,14 +560,20 @@ async function monitorVideo(jobId) {
     const maxAttempts = 200;
 
 
-    while (attempts < maxAttempts) {
+    while (
+        attempts <
+        maxAttempts
+    ) {
 
         attempts++;
 
 
         await new Promise(
             resolve =>
-                setTimeout(resolve, 3000)
+                setTimeout(
+                    resolve,
+                    2500
+                )
         );
 
 
@@ -487,7 +581,9 @@ async function monitorVideo(jobId) {
             await fetch(
                 BACKEND_URL +
                 "/api/video-status/" +
-                encodeURIComponent(jobId)
+                encodeURIComponent(
+                    jobId
+                )
             );
 
 
@@ -499,30 +595,34 @@ async function monitorVideo(jobId) {
 
             throw new Error(
                 data.error ||
-                "Could not check video status."
+                "Unable to check video progress."
             );
 
         }
 
 
-        if (data.status === "processing") {
+        if (
+            data.status ===
+            "processing"
+        ) {
 
             status.textContent =
-`🎬 CREATING CARTOON VIDEO...
-
-${data.message || "Rendering animation..."}
-
-⏳ Please keep this page open.`;
+                "Creating your video...\n\n" +
+                (
+                    data.message ||
+                    "Rendering scenes..."
+                );
 
         }
 
 
-        else if (data.status === "completed") {
+        else if (
+            data.status ===
+            "completed"
+        ) {
 
             status.textContent =
-`🎉 VIDEO CREATED SUCCESSFULLY!
-
-Your cartoon is ready below.`;
+                "Your video is ready.";
 
             showVideo(
                 data.video_url
@@ -533,11 +633,14 @@ Your cartoon is ready below.`;
         }
 
 
-        else if (data.status === "failed") {
+        else if (
+            data.status ===
+            "failed"
+        ) {
 
             throw new Error(
                 data.error ||
-                "Video generation failed."
+                "Video creation failed."
             );
 
         }
@@ -546,60 +649,84 @@ Your cartoon is ready below.`;
 
 
     throw new Error(
-        "Video generation is taking too long. Check Render logs."
+        "Video creation is taking longer than expected."
     );
 
 }
 
 
-function showVideo(videoUrl) {
+function showVideo(
+    videoUrl
+) {
 
     const videoBox =
-        document.getElementById("videoBox");
+        document.getElementById(
+            "videoBox"
+        );
 
     const video =
-        document.getElementById("videoPreview");
+        document.getElementById(
+            "videoPreview"
+        );
 
     const download =
-        document.getElementById("downloadButton");
+        document.getElementById(
+            "downloadButton"
+        );
 
 
     let fullUrl;
 
 
-    if (videoUrl.startsWith("http")) {
+    if (
+        videoUrl.startsWith(
+            "http"
+        )
+    ) {
 
-        fullUrl = videoUrl;
+        fullUrl =
+            videoUrl;
 
     } else {
 
         fullUrl =
-            BACKEND_URL + videoUrl;
+            BACKEND_URL +
+            videoUrl;
 
     }
 
 
-    video.src = fullUrl;
+    video.src =
+        fullUrl;
 
-    download.href = fullUrl;
+    download.href =
+        fullUrl;
 
-    videoBox.style.display = "block";
+
+    videoBox.style.display =
+        "block";
 
 
-    video.scrollIntoView({
+    videoBox.scrollIntoView({
         behavior: "smooth"
     });
 
 }
 
 
-function displayStory(story) {
+function displayStory(
+    story
+) {
 
     const storyBox =
-        document.getElementById("storyBox");
+        document.getElementById(
+            "storyBox"
+        );
 
     const storyContent =
-        document.getElementById("storyContent");
+        document.getElementById(
+            "storyContent"
+        );
 
 
     let html = "";
@@ -628,10 +755,17 @@ function displayStory(story) {
     }
 
 
-    if (story.characters) {
+    if (
+        story.characters &&
+        Array.isArray(
+            story.characters
+        )
+    ) {
 
         html += `
-            <h3>🎭 Characters</h3>
+            <h3>
+                Characters
+            </h3>
         `;
 
 
@@ -672,11 +806,17 @@ function displayStory(story) {
     }
 
 
-    if (story.scenes) {
+    if (
+        story.scenes &&
+        Array.isArray(
+            story.scenes
+        )
+    ) {
 
         html += `
-            <h3 style="margin-top:20px;">
-                🎬 Scenes
+            <h3
+                style="margin-top:22px;">
+                Scenes
             </h3>
         `;
 
@@ -688,18 +828,21 @@ function displayStory(story) {
                     <div class="scene">
 
                         <strong>
-                            Scene ${scene.scene}
+                            Scene
+                            ${escapeHTML(
+                                scene.scene
+                            )}
                         </strong>
 
                         <p>
-                            📍 ${escapeHTML(
+                            ${escapeHTML(
                                 scene.location ||
                                 ""
                             )}
                         </p>
 
                         <p>
-                            🎭 ${escapeHTML(
+                            ${escapeHTML(
                                 scene.visual_action ||
                                 ""
                             )}
@@ -707,7 +850,12 @@ function displayStory(story) {
                 `;
 
 
-                if (scene.dialogue) {
+                if (
+                    scene.dialogue &&
+                    Array.isArray(
+                        scene.dialogue
+                    )
+                ) {
 
                     scene.dialogue.forEach(
                         line => {
@@ -719,8 +867,9 @@ function displayStory(story) {
                                         ${escapeHTML(
                                             line.character
                                         )}
-                                    </strong>:
+                                    </strong>
 
+                                    :
                                     ${escapeHTML(
                                         line.line
                                     )}
@@ -754,14 +903,18 @@ function displayStory(story) {
     }
 
 
-    storyContent.innerHTML = html;
+    storyContent.innerHTML =
+        html;
 
-    storyBox.style.display = "block";
+    storyBox.style.display =
+        "block";
 
 }
 
 
-function escapeHTML(value) {
+function escapeHTML(
+    value
+) {
 
     if (
         value === undefined ||
