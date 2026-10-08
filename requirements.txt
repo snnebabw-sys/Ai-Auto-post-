@@ -3,3 +3,6 @@ flask-cors
 google-genai
 python-dotenv
 gunicorn
+gTTS
+Pillow
+imageio-ffmpeg
