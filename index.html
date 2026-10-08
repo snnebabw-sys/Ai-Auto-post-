@@ -1,19 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AfriToon Studio</title>
 
 <style>
-
 * {
     box-sizing: border-box;
 }
@@ -39,7 +31,6 @@ body {
 .logo {
     font-size: 28px;
     font-weight: 700;
-    letter-spacing: -0.5px;
 }
 
 .subtitle {
@@ -90,6 +81,10 @@ textarea {
     resize: vertical;
 }
 
+#script {
+    min-height: 230px;
+}
+
 .primary-button {
     width: 100%;
     margin-top: 20px;
@@ -101,10 +96,6 @@ textarea {
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-}
-
-.primary-button:hover {
-    background: #111417;
 }
 
 .primary-button:disabled {
@@ -167,35 +158,27 @@ textarea {
     background: #000;
 }
 
-.download-button {
-    display: block;
-    width: 100%;
-    text-align: center;
-    text-decoration: none;
-    background: #22262b;
-    color: #fff;
-    padding: 13px;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    margin-top: 12px;
-}
-
-.download-button:hover {
-    background: #111417;
-}
-
+.download-button,
 .open-button {
     display: block;
     width: 100%;
     text-align: center;
     text-decoration: none;
-    background: #f1f2f4;
-    color: #20242a;
     padding: 13px;
     border-radius: 8px;
     font-size: 15px;
     font-weight: 600;
+}
+
+.download-button {
+    background: #22262b;
+    color: #fff;
+    margin-top: 12px;
+}
+
+.open-button {
+    background: #f1f2f4;
+    color: #20242a;
     margin-top: 10px;
 }
 
@@ -213,27 +196,25 @@ textarea {
     color: #18794e;
 }
 
+.hint {
+    color: #858c94;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 6px;
+}
 </style>
-
 </head>
-
 
 <body>
 
-
 <div class="container">
 
-
     <div class="header">
-
-        <div class="logo">
-            AfriToon Studio
-        </div>
+        <div class="logo">AfriToon Studio</div>
 
         <div class="subtitle">
-            Create short animated stories and videos.
+            Create animated cartoon stories and videos.
         </div>
-
     </div>
 
 
@@ -307,14 +288,50 @@ textarea {
         </select>
 
 
+        <!-- STORY IDEA -->
+
         <label for="topic">
             Story idea
         </label>
 
         <textarea
             id="topic"
-            placeholder="Describe your story idea, or leave this field empty."
+            placeholder="Example: Two friends meet at a market and get into a funny situation."
         ></textarea>
+
+
+        <div class="hint">
+            Use this if you want AI to create the story for you.
+        </div>
+
+
+        <!-- EXACT SCRIPT -->
+
+        <label for="script">
+            Exact script
+        </label>
+
+        <textarea
+            id="script"
+            placeholder="Example:
+
+Scene 1:
+David is sitting in the living room.
+
+Sarah walks into the room.
+
+Sarah says: &quot;Hello David.&quot;
+
+David says: &quot;Hello Sarah.&quot;
+
+Scene 2:
+Sarah sits beside David."
+        ></textarea>
+
+
+        <div class="hint">
+            If you enter an exact script, it will be used instead of the story idea.
+        </div>
 
 
         <label for="language">
@@ -353,9 +370,7 @@ textarea {
 
     <div class="card">
 
-        <h2>
-            Progress
-        </h2>
+        <h2>Progress</h2>
 
         <div
             id="status"
@@ -374,9 +389,7 @@ textarea {
         id="storyBox"
     >
 
-        <h2>
-            Story
-        </h2>
+        <h2>Story</h2>
 
         <div id="storyContent"></div>
 
@@ -390,10 +403,7 @@ textarea {
         id="videoBox"
     >
 
-        <h2>
-            Preview
-        </h2>
-
+        <h2>Preview</h2>
 
         <video
             id="videoPreview"
@@ -428,113 +438,103 @@ textarea {
     <div class="card">
 
         <p class="small-text">
-
-            Videos are created from the story settings you provide.
-            You can preview the finished video before saving it.
-
+            You can either give AfriToon a story idea and let AI create
+            the story, or provide an exact script and let AfriToon use it.
         </p>
 
     </div>
-
 
 </div>
 
 
 <script>
 
-
-/* ============================================================
-   BACKEND
-============================================================ */
-
 const BACKEND_URL =
     "https://ai-auto-post-61wi.onrender.com";
 
 
 /* ============================================================
-   CREATE STORY
+   CREATE STORY / VIDEO
 ============================================================ */
 
 async function createStory() {
 
     const category =
-        document.getElementById(
-            "category"
-        ).value;
-
+        document.getElementById("category").value;
 
     const duration =
-        document.getElementById(
-            "duration"
-        ).value;
-
+        document.getElementById("duration").value;
 
     const topic =
-        document.getElementById(
-            "topic"
-        ).value.trim();
+        document.getElementById("topic").value.trim();
 
+    const script =
+        document.getElementById("script").value.trim();
 
     const language =
-        document.getElementById(
-            "language"
-        ).value;
-
+        document.getElementById("language").value;
 
     const status =
-        document.getElementById(
-            "status"
-        );
-
+        document.getElementById("status");
 
     const button =
-        document.getElementById(
-            "createButton"
-        );
-
+        document.getElementById("createButton");
 
     const storyBox =
-        document.getElementById(
-            "storyBox"
-        );
-
+        document.getElementById("storyBox");
 
     const videoBox =
-        document.getElementById(
-            "videoBox"
-        );
+        document.getElementById("videoBox");
 
 
-    button.disabled =
-        true;
+    /*
+     * IMPORTANT:
+     * At least one of topic or script is required.
+     */
 
+    if (!topic && !script) {
+
+        status.className =
+            "status error-text";
+
+        status.textContent =
+            "Please provide a story idea or an exact script.";
+
+        return;
+    }
+
+
+    button.disabled = true;
 
     button.textContent =
         "Creating...";
 
-
     storyBox.style.display =
         "none";
-
 
     videoBox.style.display =
         "none";
 
-
     status.className =
         "status";
 
-
     status.textContent =
-        "Preparing your story...";
+        script
+            ? "Reading your exact script..."
+            : "Preparing your story...";
 
 
     try {
 
+        /*
+         * Send BOTH topic and script.
+         *
+         * The backend should give SCRIPT priority.
+         */
+
         const response =
             await fetch(
-                BACKEND_URL +
-                "/api/generate",
+                BACKEND_URL + "/api/generate",
                 {
                     method: "POST",
 
@@ -551,6 +551,9 @@ async function createStory() {
                         topic:
                             topic,
 
+                        script:
+                            script,
+
                         duration:
                             Number(duration),
 
@@ -558,7 +561,7 @@ async function createStory() {
                             language,
 
                         style:
-                            "funny and entertaining"
+                            "2D cinematic cartoon animation, funny and entertaining"
 
                     })
                 }
@@ -566,9 +569,13 @@ async function createStory() {
 
 
         const data =
-            await parseJSON(
-                response
-            );
+            await parseJSON(response);
+
+
+        console.log(
+            "GENERATE RESPONSE:",
+            data
+        );
 
 
         if (!response.ok) {
@@ -633,7 +640,6 @@ async function createStory() {
         button.disabled =
             false;
 
-
         button.textContent =
             "Create video";
 
@@ -652,9 +658,7 @@ async function createVideo(
 ) {
 
     const status =
-        document.getElementById(
-            "status"
-        );
+        document.getElementById("status");
 
 
     status.className =
@@ -670,8 +674,7 @@ async function createVideo(
 
     const response =
         await fetch(
-            BACKEND_URL +
-            "/api/create-video",
+            BACKEND_URL + "/api/create-video",
             {
                 method: "POST",
 
@@ -694,9 +697,7 @@ async function createVideo(
 
 
     const data =
-        await parseJSON(
-            response
-        );
+        await parseJSON(response);
 
 
     console.log(
@@ -746,16 +747,12 @@ async function monitorVideo(
 ) {
 
     const status =
-        document.getElementById(
-            "status"
-        );
+        document.getElementById("status");
 
 
     let attempts = 0;
 
-
     const maxAttempts = 300;
-
 
     const pollInterval = 2500;
 
@@ -786,16 +783,12 @@ async function monitorVideo(
                 await fetch(
                     BACKEND_URL +
                     "/api/video-status/" +
-                    encodeURIComponent(
-                        jobId
-                    ) +
+                    encodeURIComponent(jobId) +
                     "?t=" +
                     Date.now(),
                     {
                         method: "GET",
-
-                        cache:
-                            "no-store"
+                        cache: "no-store"
                     }
                 );
 
@@ -822,9 +815,7 @@ async function monitorVideo(
 
 
         const data =
-            await parseJSON(
-                response
-            );
+            await parseJSON(response);
 
 
         console.log(
@@ -844,16 +835,9 @@ async function monitorVideo(
         }
 
 
-        /* ====================================================
-           FAILED
-        ==================================================== */
-
         if (
-            data.status ===
-            "failed" ||
-
-            data.status ===
-            "error"
+            data.status === "failed" ||
+            data.status === "error"
         ) {
 
             throw new Error(
@@ -865,22 +849,11 @@ async function monitorVideo(
         }
 
 
-        /* ====================================================
-           COMPLETED
-        ==================================================== */
-
         if (
-            data.status ===
-            "complete" ||
-
-            data.status ===
-            "completed" ||
-
-            data.status ===
-            "done" ||
-
-            data.status ===
-            "success"
+            data.status === "complete" ||
+            data.status === "completed" ||
+            data.status === "done" ||
+            data.status === "success"
         ) {
 
             const videoUrl =
@@ -925,10 +898,6 @@ async function monitorVideo(
         }
 
 
-        /* ====================================================
-           PROCESSING
-        ==================================================== */
-
         const progress =
             data.progress !== undefined
                 ? "\nProgress: " +
@@ -949,7 +918,7 @@ async function monitorVideo(
 
 
     throw new Error(
-        "Video creation is taking longer than expected. Please try again."
+        "Video creation is taking longer than expected."
     );
 
 }
@@ -965,27 +934,16 @@ function showVideo(
 ) {
 
     const videoBox =
-        document.getElementById(
-            "videoBox"
-        );
-
+        document.getElementById("videoBox");
 
     const video =
-        document.getElementById(
-            "videoPreview"
-        );
-
+        document.getElementById("videoPreview");
 
     const download =
-        document.getElementById(
-            "downloadButton"
-        );
-
+        document.getElementById("downloadButton");
 
     const open =
-        document.getElementById(
-            "openButton"
-        );
+        document.getElementById("openButton");
 
 
     if (!videoUrl) {
@@ -1000,46 +958,28 @@ function showVideo(
     let fullVideoUrl;
 
 
-    /*
-     * Absolute URL
-     */
-
     if (
-        videoUrl.startsWith(
-            "http://"
-        ) ||
-
-        videoUrl.startsWith(
-            "https://"
-        )
+        videoUrl.startsWith("http://") ||
+        videoUrl.startsWith("https://")
     ) {
 
         fullVideoUrl =
             videoUrl;
 
-    }
-
-
-    /*
-     * Relative URL
-     */
-
-    else {
+    } else {
 
         if (
             !videoUrl.startsWith("/")
         ) {
 
             videoUrl =
-                "/" +
-                videoUrl;
+                "/" + videoUrl;
 
         }
 
 
         fullVideoUrl =
-            BACKEND_URL +
-            videoUrl;
+            BACKEND_URL + videoUrl;
 
     }
 
@@ -1047,20 +987,11 @@ function showVideo(
     let fullDownloadUrl;
 
 
-    /*
-     * DOWNLOAD URL
-     */
-
     if (
         downloadUrl &&
         (
-            downloadUrl.startsWith(
-                "http://"
-            ) ||
-
-            downloadUrl.startsWith(
-                "https://"
-            )
+            downloadUrl.startsWith("http://") ||
+            downloadUrl.startsWith("https://")
         )
     ) {
 
@@ -1074,15 +1005,13 @@ function showVideo(
         ) {
 
             downloadUrl =
-                "/" +
-                downloadUrl;
+                "/" + downloadUrl;
 
         }
 
 
         fullDownloadUrl =
-            BACKEND_URL +
-            downloadUrl;
+            BACKEND_URL + downloadUrl;
 
     } else {
 
@@ -1091,10 +1020,6 @@ function showVideo(
 
     }
 
-
-    /*
-     * Cache bust
-     */
 
     const previewUrl =
         fullVideoUrl +
@@ -1107,44 +1032,16 @@ function showVideo(
         Date.now();
 
 
-    console.log(
-        "VIDEO URL:",
-        fullVideoUrl
-    );
-
-
-    console.log(
-        "DOWNLOAD URL:",
-        fullDownloadUrl
-    );
-
-
-    /*
-     * Reset previous video
-     */
-
     video.pause();
 
-
-    video.removeAttribute(
-        "src"
-    );
-
+    video.removeAttribute("src");
 
     video.load();
 
 
-    /*
-     * Set new video
-     */
-
     video.src =
         previewUrl;
 
-
-    /*
-     * Download button
-     */
 
     download.href =
         fullDownloadUrl;
@@ -1156,25 +1053,13 @@ function showVideo(
     );
 
 
-    /*
-     * Open button
-     */
-
     open.href =
         fullVideoUrl;
 
 
-    /*
-     * Show video box
-     */
-
     videoBox.style.display =
         "block";
 
-
-    /*
-     * Scroll to video
-     */
 
     setTimeout(
         () => {
@@ -1189,23 +1074,11 @@ function showVideo(
     );
 
 
-    /*
-     * Video loading error
-     */
-
     video.onerror =
         function () {
 
-            console.error(
-                "VIDEO LOAD ERROR:",
-                fullVideoUrl
-            );
-
-
             const status =
-                document.getElementById(
-                    "status"
-                );
+                document.getElementById("status");
 
 
             status.className =
@@ -1214,28 +1087,16 @@ function showVideo(
 
             status.textContent =
                 "The MP4 was created, but the browser could not load it.\n\n" +
-                "Try the 'Open video' button below.";
+                "Try the Open video button.";
 
         };
 
 
-    /*
-     * Video loaded
-     */
-
     video.onloadedmetadata =
         function () {
 
-            console.log(
-                "VIDEO LOADED:",
-                fullVideoUrl
-            );
-
-
             const status =
-                document.getElementById(
-                    "status"
-                );
+                document.getElementById("status");
 
 
             status.className =
@@ -1260,15 +1121,10 @@ function displayStory(
 ) {
 
     const storyBox =
-        document.getElementById(
-            "storyBox"
-        );
-
+        document.getElementById("storyBox");
 
     const storyContent =
-        document.getElementById(
-            "storyContent"
-        );
+        document.getElementById("storyContent");
 
 
     let html = "";
@@ -1284,9 +1140,7 @@ function displayStory(
     `;
 
 
-    if (
-        story.description
-    ) {
+    if (story.description) {
 
         html += `
             <p>
@@ -1299,21 +1153,13 @@ function displayStory(
     }
 
 
-    /*
-     * CHARACTERS
-     */
-
     if (
         story.characters &&
-        Array.isArray(
-            story.characters
-        )
+        Array.isArray(story.characters)
     ) {
 
         html += `
-            <h3>
-                Characters
-            </h3>
+            <h3>Characters</h3>
         `;
 
 
@@ -1355,20 +1201,13 @@ function displayStory(
     }
 
 
-    /*
-     * SCENES
-     */
-
     if (
         story.scenes &&
-        Array.isArray(
-            story.scenes
-        )
+        Array.isArray(story.scenes)
     ) {
 
         html += `
-            <h3
-                style="margin-top:22px;">
+            <h3 style="margin-top:22px;">
                 Scenes
             </h3>
         `;
@@ -1405,15 +1244,9 @@ function displayStory(
                 `;
 
 
-                /*
-                 * DIALOGUE
-                 */
-
                 if (
                     scene.dialogue &&
-                    Array.isArray(
-                        scene.dialogue
-                    )
+                    Array.isArray(scene.dialogue)
                 ) {
 
                     scene.dialogue.forEach(
@@ -1476,7 +1309,7 @@ function displayStory(
 
 
 /* ============================================================
-   SAFE JSON RESPONSE
+   JSON
 ============================================================ */
 
 async function parseJSON(
@@ -1496,9 +1329,7 @@ async function parseJSON(
 
     try {
 
-        return JSON.parse(
-            text
-        );
+        return JSON.parse(text);
 
     } catch (error) {
 
@@ -1518,7 +1349,7 @@ async function parseJSON(
 
 
 /* ============================================================
-   ESCAPE HTML
+   HTML ESCAPE
 ============================================================ */
 
 function escapeHTML(
