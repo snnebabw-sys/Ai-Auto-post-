@@ -1,7 +1,6 @@
 import os
 import json
 import uuid
-import time
 import re
 import subprocess
 import threading
@@ -23,36 +22,70 @@ from PIL import Image, ImageDraw, ImageFont
 # ============================================================
 
 app = Flask(__name__)
-CORS(app)
+
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": "*"
+        }
+    }
+)
 
 BASE_DIR = Path(__file__).resolve().parent
+
 OUTPUT_DIR = BASE_DIR / "generated"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 JOBS = {}
+
 JOB_LOCK = threading.Lock()
+
+
+# ============================================================
+# ENVIRONMENT
+# ============================================================
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 if API_KEY:
-    client = genai.Client(api_key=API_KEY)
+    client = genai.Client(
+        api_key=API_KEY
+    )
 else:
     client = None
+
+
+# IMPORTANT:
+# Set BASE_URL on Render to your actual Render backend URL.
+#
+# Example:
+# BASE_URL=https://afritoon-backend.onrender.com
+#
+# If BASE_URL is not set, the code will still create
+# relative URLs as a fallback.
+
+BASE_URL = os.getenv(
+    "BASE_URL",
+    ""
+).rstrip("/")
 
 
 # ============================================================
 # SETTINGS
 # ============================================================
 
-# Lower resolution + lower FPS = much faster rendering.
 WIDTH = 480
 HEIGHT = 854
+
 FPS = 8
 
-# Maximum number of dialogue lines rendered.
 MAX_DIALOGUE_LINES = 14
 
-# Limit story scenes.
 MAX_SCENES = 6
 
 
@@ -60,7 +93,13 @@ MAX_SCENES = 6
 # JOB HELPERS
 # ============================================================
 
-def update_job(job_id, status=None, message=None, progress=None, **extra):
+def update_job(
+    job_id,
+    status=None,
+    message=None,
+    progress=None,
+    **extra
+):
 
     with JOB_LOCK:
 
@@ -76,18 +115,24 @@ def update_job(job_id, status=None, message=None, progress=None, **extra):
             job["message"] = message
 
         if progress is not None:
+
             job["progress"] = max(
                 0,
-                min(100, int(progress))
+                min(
+                    100,
+                    int(progress)
+                )
             )
 
         for key, value in extra.items():
+
             job[key] = value
 
 
 def get_job(job_id):
 
     with JOB_LOCK:
+
         job = JOBS.get(job_id)
 
         if not job:
@@ -97,14 +142,38 @@ def get_job(job_id):
 
 
 # ============================================================
+# BUILD PUBLIC VIDEO URL
+# ============================================================
+
+def public_video_url(filename):
+
+    path = (
+        f"/generated/"
+        f"{filename}"
+    )
+
+    if BASE_URL:
+
+        return (
+            f"{BASE_URL}"
+            f"{path}"
+        )
+
+    return path
+
+
+# ============================================================
 # FFMPEG
 # ============================================================
 
 def get_ffmpeg():
 
-    ffmpeg = shutil.which("ffmpeg")
+    ffmpeg = shutil.which(
+        "ffmpeg"
+    )
 
     if not ffmpeg:
+
         raise RuntimeError(
             "FFmpeg is not installed on the Render server."
         )
@@ -119,21 +188,31 @@ def get_ffmpeg():
 FONT_CACHE = {}
 
 
-def font(size=30, bold=False):
+def font(
+    size=30,
+    bold=False
+):
 
-    key = (size, bold)
+    key = (
+        size,
+        bold
+    )
 
     if key in FONT_CACHE:
+
         return FONT_CACHE[key]
 
     candidates = []
 
     if bold:
+
         candidates.extend([
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
         ])
+
     else:
+
         candidates.extend([
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
@@ -160,13 +239,16 @@ def font(size=30, bold=False):
 
 
 # ============================================================
-# JSON
+# JSON CLEANING
 # ============================================================
 
 def clean_json(text):
 
     if not text:
-        raise Exception("Gemini returned an empty response.")
+
+        raise Exception(
+            "Gemini returned an empty response."
+        )
 
     text = text.strip()
 
@@ -174,13 +256,25 @@ def clean_json(text):
 
         lines = text.splitlines()
 
-        if lines and lines[0].startswith("```"):
+        if (
+            lines
+            and
+            lines[0].startswith("```")
+        ):
+
             lines = lines[1:]
 
-        if lines and lines[-1].strip() == "```":
+        if (
+            lines
+            and
+            lines[-1].strip() == "```"
+        ):
+
             lines = lines[:-1]
 
-        text = "\n".join(lines)
+        text = "\n".join(
+            lines
+        )
 
     return text.strip()
 
@@ -192,11 +286,18 @@ def clean_json(text):
 def safe_filename(name):
 
     cleaned = "".join(
-        c if c.isalnum() or c in "-_" else "_"
+        c
+        if c.isalnum()
+        or c in "-_"
+        else "_"
         for c in str(name)
     )
 
-    return cleaned[:70] or "afritoon"
+    return (
+        cleaned[:70]
+        or
+        "afritoon"
+    )
 
 
 # ============================================================
@@ -211,6 +312,7 @@ def generate_story(
 ):
 
     if not client:
+
         raise Exception(
             "GEMINI_API_KEY is missing on Render."
         )
@@ -242,6 +344,7 @@ Use a maximum of 10 dialogue lines.
 Each dialogue line should normally be short.
 
 The story must contain:
+
 - beginning
 - middle
 - ending
@@ -251,7 +354,8 @@ The story must contain:
 - body movements
 - scene changes
 
-Do not copy existing cartoons, movies, characters,
+Do not copy existing cartoons,
+movies, characters,
 or copyrighted stories.
 
 Return ONLY valid JSON.
@@ -261,6 +365,7 @@ Use exactly this structure:
 {{
   "title": "Story title",
   "description": "Short description",
+
   "characters": [
     {{
       "name": "Character name",
@@ -268,11 +373,13 @@ Use exactly this structure:
       "voice": "Voice description"
     }}
   ],
+
   "scenes": [
     {{
       "scene": 1,
       "location": "Location",
       "action": "What is happening",
+
       "dialogue": [
         {{
           "character": "Character name",
@@ -286,9 +393,13 @@ Use exactly this structure:
 """
 
     response = client.models.generate_content(
+
         model="gemini-3.5-flash-lite",
+
         contents=prompt,
+
         config=types.GenerateContentConfig(
+
             response_mime_type="application/json"
         )
     )
@@ -297,7 +408,9 @@ Use exactly this structure:
         response.text
     )
 
-    story = json.loads(text)
+    story = json.loads(
+        text
+    )
 
     return story
 
@@ -317,9 +430,13 @@ def draw_character(
 ):
 
     colors = {
+
         "Kofi": "#8B5A2B",
+
         "Amina": "#6B3E26",
+
         "Nana": "#7A4A2B",
+
         "Tunde": "#704020"
     }
 
@@ -328,7 +445,9 @@ def draw_character(
         "#8B5A2B"
     )
 
-    head_r = int(58 * scale)
+    head_r = int(
+        58 * scale
+    )
 
     # BODY
 
@@ -478,7 +597,11 @@ def draw_character(
 
     # ARMS
 
-    movement = 8 if talking else 0
+    movement = (
+        8
+        if talking
+        else 0
+    )
 
     draw.line(
         [
@@ -515,8 +638,13 @@ def draw_calabash(
     talking=False
 ):
 
-    width = int(90 * scale)
-    height = int(75 * scale)
+    width = int(
+        90 * scale
+    )
+
+    height = int(
+        75 * scale
+    )
 
     draw.ellipse(
         [
@@ -598,44 +726,47 @@ def draw_calabash(
 # BACKGROUND
 # ============================================================
 
-def draw_background(draw, scene_number):
+def draw_background(
+    draw,
+    scene_number
+):
 
-    # Sky
+    # SKY
 
     draw.rectangle(
         [0, 0, WIDTH, 560],
         fill="#87CEEB"
     )
 
-    # Ground
+    # GROUND
 
     draw.rectangle(
         [0, 560, WIDTH, HEIGHT],
         fill="#D19A5A"
     )
 
-    # Sun
+    # SUN
 
     draw.ellipse(
         [370, 55, 435, 120],
         fill="#FFD54A"
     )
 
-    # Tree trunk
+    # TREE TRUNK
 
     draw.rectangle(
         [55, 280, 85, 560],
         fill="#5C3A21"
     )
 
-    # Tree crown
+    # TREE CROWN
 
     draw.ellipse(
         [10, 190, 130, 350],
         fill="#3F7D3A"
     )
 
-    # House
+    # HOUSE
 
     draw.polygon(
         [
@@ -651,13 +782,16 @@ def draw_background(draw, scene_number):
         fill="#C77D45"
     )
 
-    # Scene label
+    # SCENE LABEL
 
     draw.text(
         (20, 20),
         f"Scene {scene_number}",
         fill="black",
-        font=font(23, True)
+        font=font(
+            23,
+            True
+        )
     )
 
 
@@ -672,15 +806,20 @@ def wrap_text(
     max_width
 ):
 
-    words = str(text).split()
+    words = str(
+        text
+    ).split()
 
     lines = []
+
     current = ""
 
     for word in words:
 
         test = (
-            current + " " + word
+            current
+            + " "
+            + word
         ).strip()
 
         bbox = draw.textbbox(
@@ -696,12 +835,18 @@ def wrap_text(
         else:
 
             if current:
-                lines.append(current)
+
+                lines.append(
+                    current
+                )
 
             current = word
 
     if current:
-        lines.append(current)
+
+        lines.append(
+            current
+        )
 
     return lines
 
@@ -712,12 +857,31 @@ def wrap_text(
 
 def create_voice(
     text,
-    filename
+    filename,
+    language="English"
 ):
+
+    # gTTS language mapping
+
+    lang_map = {
+
+        "English": "en",
+
+        "Spanish": "es",
+
+        "French": "fr",
+
+        "Portuguese": "pt"
+    }
+
+    lang = lang_map.get(
+        language,
+        "en"
+    )
 
     tts = gTTS(
         text=text,
-        lang="en",
+        lang=lang,
         slow=False
     )
 
@@ -727,10 +891,12 @@ def create_voice(
 
 
 # ============================================================
-# GET AUDIO LENGTH
+# AUDIO LENGTH
 # ============================================================
 
-def get_audio_duration(filename):
+def get_audio_duration(
+    filename
+):
 
     ffmpeg = get_ffmpeg()
 
@@ -753,11 +919,20 @@ def get_audio_duration(filename):
     )
 
     if not match:
+
         return 2.0
 
-    hours = int(match.group(1))
-    minutes = int(match.group(2))
-    seconds = float(match.group(3))
+    hours = int(
+        match.group(1)
+    )
+
+    minutes = int(
+        match.group(2)
+    )
+
+    seconds = float(
+        match.group(3)
+    )
 
     return (
         hours * 3600
@@ -806,9 +981,9 @@ def create_video(
 
     try:
 
-        # ======================================================
+        # ====================================================
         # COLLECT DIALOGUE
-        # ======================================================
+        # ====================================================
 
         dialogue_items = []
 
@@ -817,7 +992,9 @@ def create_video(
             []
         )[:MAX_SCENES]
 
-        for scene_index, scene in enumerate(scenes):
+        for scene_index, scene in enumerate(
+            scenes
+        ):
 
             for line in scene.get(
                 "dialogue",
@@ -825,6 +1002,7 @@ def create_video(
             ):
 
                 if len(dialogue_items) >= MAX_DIALOGUE_LINES:
+
                     break
 
                 text = str(
@@ -835,18 +1013,25 @@ def create_video(
                 ).strip()
 
                 if not text:
+
                     continue
 
                 dialogue_items.append({
+
                     "scene": scene_index,
-                    "character": line.get(
-                        "character",
-                        "Character"
-                    ),
-                    "emotion": line.get(
-                        "emotion",
-                        "neutral"
-                    ),
+
+                    "character":
+                        line.get(
+                            "character",
+                            "Character"
+                        ),
+
+                    "emotion":
+                        line.get(
+                            "emotion",
+                            "neutral"
+                        ),
+
                     "text": text
                 })
 
@@ -856,9 +1041,9 @@ def create_video(
                 "The story contains no dialogue."
             )
 
-        # ======================================================
-        # AUDIO
-        # ======================================================
+        # ====================================================
+        # CREATE AUDIO
+        # ====================================================
 
         update_job(
             job_id,
@@ -873,6 +1058,11 @@ def create_video(
             dialogue_items
         )
 
+        story_language = story.get(
+            "language",
+            "English"
+        )
+
         for index, item in enumerate(
             dialogue_items
         ):
@@ -884,7 +1074,8 @@ def create_video(
 
             create_voice(
                 item["text"],
-                audio_file
+                audio_file,
+                story_language
             )
 
             duration = get_audio_duration(
@@ -892,28 +1083,39 @@ def create_video(
             )
 
             item["audio"] = audio_file
+
             item["duration"] = duration
 
             audio_files.append(
                 audio_file
             )
 
-            progress = 5 + int(
-                ((index + 1) / total_lines) * 20
+            progress = (
+                5
+                +
+                int(
+                    (
+                        (index + 1)
+                        /
+                        total_lines
+                    )
+                    * 20
+                )
             )
 
             update_job(
                 job_id,
                 message=(
                     f"Creating voices "
-                    f"({index + 1}/{total_lines})..."
+                    f"({index + 1}/"
+                    f"{total_lines})..."
                 ),
                 progress=progress
             )
 
-        # ======================================================
-        # BUILD AUDIO
-        # ======================================================
+        # ====================================================
+        # COMBINE AUDIO
+        # ====================================================
 
         update_job(
             job_id,
@@ -953,34 +1155,42 @@ def create_video(
             "dialogue.mp3"
         )
 
-        # Re-encode rather than -c copy.
-        # This avoids MP3 concat compatibility problems.
-
         subprocess.run(
             [
                 ffmpeg,
                 "-y",
+
                 "-f",
                 "concat",
+
                 "-safe",
                 "0",
+
                 "-i",
-                str(concat_file),
+                str(
+                    concat_file
+                ),
+
                 "-vn",
+
                 "-c:a",
                 "libmp3lame",
+
                 "-q:a",
                 "6",
-                str(combined_audio)
+
+                str(
+                    combined_audio
+                )
             ],
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.PIPE
         )
 
-        # ======================================================
-        # DETERMINE TARGET DURATION
-        # ======================================================
+        # ====================================================
+        # TARGET DURATION
+        # ====================================================
 
         total_audio_duration = sum(
             item["duration"]
@@ -988,16 +1198,18 @@ def create_video(
         )
 
         target_duration = min(
-            float(requested_duration),
+            float(
+                requested_duration
+            ),
             max(
                 8.0,
                 total_audio_duration
             )
         )
 
-        # ======================================================
+        # ====================================================
         # RENDER FRAMES
-        # ======================================================
+        # ====================================================
 
         update_job(
             job_id,
@@ -1006,60 +1218,77 @@ def create_video(
             progress=30
         )
 
-        # Calculate how many frames we need.
-
         total_frames = int(
-            target_duration * FPS
+            target_duration
+            * FPS
         )
 
-        # Prevent runaway rendering.
-
-        total_frames = min(
-            total_frames,
-            int(requested_duration * FPS)
+        total_frames = max(
+            1,
+            total_frames
         )
 
         frame_number = 0
 
-        dialogue_position = 0
+        # ----------------------------------------------------
+        # IMPORTANT:
+        # Calculate cumulative dialogue times.
+        # This fixes dialogue timing.
+        # ----------------------------------------------------
+
+        current_dialogue_index = 0
+
         current_item = dialogue_items[0]
+
         elapsed_in_item = 0.0
 
-        frame_time = 1.0 / FPS
+        frame_time = (
+            1.0 / FPS
+        )
 
-        # ------------------------------------------------------
-        # Render one frame at a time.
-        # Reuse fonts and simple drawing operations.
-        # ------------------------------------------------------
+        # ====================================================
+        # FRAME LOOP
+        # ====================================================
 
         for frame_index in range(
             total_frames
         ):
 
-            # Current dialogue
+            # Move to next dialogue item
+            # when current audio finishes.
 
             while (
-                dialogue_position <
+                current_dialogue_index
+                <
                 len(dialogue_items) - 1
-                and elapsed_in_item >=
+                and
+                elapsed_in_item
+                >=
                 current_item["duration"]
             ):
 
                 elapsed_in_item -= (
-                    current_item["duration"]
+                    current_item[
+                        "duration"
+                    ]
                 )
 
-                dialogue_position += 1
+                current_dialogue_index += 1
 
-                current_item = dialogue_items[
-                    dialogue_position
-                ]
+                current_item = (
+                    dialogue_items[
+                        current_dialogue_index
+                    ]
+                )
 
-            # Create image
+            # IMAGE
 
             img = Image.new(
                 "RGB",
-                (WIDTH, HEIGHT),
+                (
+                    WIDTH,
+                    HEIGHT
+                ),
                 "#F5DFA5"
             )
 
@@ -1067,30 +1296,36 @@ def create_video(
                 img
             )
 
-            # Background
+            # BACKGROUND
 
             draw_background(
                 draw,
-                current_item["scene"] + 1
+                current_item[
+                    "scene"
+                ] + 1
             )
 
-            # Character talking animation
+            # TALKING
 
             talking = (
-                (frame_index % 8) < 5
-            )
+                frame_index % 8
+            ) < 5
 
             character = (
-                current_item["character"]
+                current_item[
+                    "character"
+                ]
             )
 
             emotion = (
-                current_item["emotion"]
+                current_item[
+                    "emotion"
+                ]
             )
 
-            # --------------------------------------------------
-            # Characters
-            # --------------------------------------------------
+            # =================================================
+            # CHARACTERS
+            # =================================================
 
             if character == "Kofi":
 
@@ -1178,9 +1413,9 @@ def create_video(
                     talking
                 )
 
-            # --------------------------------------------------
-            # Dialogue box
-            # --------------------------------------------------
+            # =================================================
+            # DIALOGUE BOX
+            # =================================================
 
             box_top = 620
 
@@ -1206,25 +1441,38 @@ def create_video(
             )
 
             draw.text(
-                (32, box_top + 18),
-                str(character),
+                (
+                    32,
+                    box_top + 18
+                ),
+                str(
+                    character
+                ),
                 fill="#FFD166",
                 font=speaker_font
             )
 
             lines = wrap_text(
                 draw,
-                current_item["text"],
+                current_item[
+                    "text"
+                ],
                 text_font,
                 WIDTH - 60
             )
 
-            y = box_top + 55
+            y = (
+                box_top
+                + 55
+            )
 
             for line in lines[:4]:
 
                 draw.text(
-                    (32, y),
+                    (
+                        32,
+                        y
+                    ),
                     line,
                     fill="white",
                     font=text_font
@@ -1232,7 +1480,9 @@ def create_video(
 
                 y += 30
 
-            # Save frame
+            # =================================================
+            # SAVE FRAME
+            # =================================================
 
             frame_path = (
                 frames_dir /
@@ -1248,17 +1498,28 @@ def create_video(
 
             frame_number += 1
 
-            elapsed_in_item += frame_time
+            elapsed_in_item += (
+                frame_time
+            )
 
-            # Progress
+            # =================================================
+            # PROGRESS
+            # =================================================
 
-            if frame_index % FPS == 0:
+            if (
+                frame_index % FPS == 0
+            ):
 
                 render_progress = (
-                    30 +
+                    30
+                    +
                     int(
-                        ((frame_index + 1) /
-                         total_frames) * 55
+                        (
+                            (frame_index + 1)
+                            /
+                            total_frames
+                        )
+                        * 55
                     )
                 )
 
@@ -1272,9 +1533,9 @@ def create_video(
                     progress=render_progress
                 )
 
-        # ======================================================
-        # MP4
-        # ======================================================
+        # ====================================================
+        # CREATE MP4
+        # ====================================================
 
         update_job(
             job_id,
@@ -1305,9 +1566,14 @@ def create_video(
             "frame_%06d.jpg"
         )
 
-        subprocess.run(
+        # ====================================================
+        # FFmpeg
+        # ====================================================
+
+        result = subprocess.run(
             [
                 ffmpeg,
+
                 "-y",
 
                 "-framerate",
@@ -1318,6 +1584,9 @@ def create_video(
 
                 "-i",
                 str(combined_audio),
+
+                "-t",
+                str(target_duration),
 
                 "-c:v",
                 "libx264",
@@ -1344,32 +1613,96 @@ def create_video(
 
                 str(output_file)
             ],
-            check=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
 
-        # ======================================================
+        if result.returncode != 0:
+
+            print(
+                "FFMPEG ERROR:",
+                result.stderr
+            )
+
+            raise RuntimeError(
+                "FFmpeg failed to create the MP4."
+            )
+
+        # ====================================================
+        # VERIFY FILE
+        # ====================================================
+
+        if not output_file.exists():
+
+            raise RuntimeError(
+                "MP4 was not created."
+            )
+
+        if output_file.stat().st_size <= 0:
+
+            raise RuntimeError(
+                "MP4 file is empty."
+            )
+
+        # ====================================================
+        # PUBLIC URL
+        # ====================================================
+
+        video_url = public_video_url(
+            output_file.name
+        )
+
+        # ====================================================
         # COMPLETE
-        # ======================================================
+        # ====================================================
 
         update_job(
             job_id,
+
             status="complete",
-            message="Video created successfully.",
+
+            message=(
+                "Video created successfully."
+            ),
+
             progress=100,
-            video_url=(
-                f"/generated/"
-                f"{output_file.name}"
-            )
+
+            video_url=video_url,
+
+            download_url=video_url,
+
+            filename=output_file.name,
+
+            file_size=output_file.stat().st_size
         )
 
-        # Remove temporary files
+        print(
+            "VIDEO CREATED:",
+            str(output_file)
+        )
+
+        print(
+            "VIDEO URL:",
+            video_url
+        )
+
+        # ====================================================
+        # REMOVE TEMPORARY FILES
+        # ====================================================
 
         try:
+
             shutil.rmtree(
                 work_dir
             )
-        except Exception:
-            pass
+
+        except Exception as cleanup_error:
+
+            print(
+                "Cleanup warning:",
+                cleanup_error
+            )
 
     except Exception as e:
 
@@ -1380,16 +1713,22 @@ def create_video(
 
         update_job(
             job_id,
+
             status="error",
+
             message=str(e),
+
             progress=0
         )
 
         try:
+
             shutil.rmtree(
                 work_dir
             )
+
         except Exception:
+
             pass
 
 
@@ -1401,9 +1740,39 @@ def create_video(
 def home():
 
     return jsonify({
+
         "status": "online",
+
         "app": "AfriToon Studio",
-        "message": "Cartoon backend is running"
+
+        "message":
+            "Cartoon backend is running",
+
+        "video_storage":
+            str(OUTPUT_DIR)
+    })
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+@app.route("/health")
+def health():
+
+    return jsonify({
+
+        "status": "healthy",
+
+        "ffmpeg":
+            bool(
+                shutil.which("ffmpeg")
+            ),
+
+        "gemini":
+            bool(
+                API_KEY
+            )
     })
 
 
@@ -1419,7 +1788,10 @@ def api_generate():
 
     try:
 
-        data = request.get_json() or {}
+        data = (
+            request.get_json()
+            or {}
+        )
 
         category = data.get(
             "category",
@@ -1449,9 +1821,12 @@ def api_generate():
         ]:
 
             return jsonify({
+
                 "success": False,
+
                 "error":
                     "Duration must be 30 or 60 seconds."
+
             }), 400
 
         story = generate_story(
@@ -1461,9 +1836,17 @@ def api_generate():
             language
         )
 
+        # Store language inside story
+        # so the video creator can use it.
+
+        story["language"] = language
+
         return jsonify({
+
             "success": True,
+
             "story": story
+
         })
 
     except Exception as e:
@@ -1474,8 +1857,11 @@ def api_generate():
         )
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         }), 500
 
 
@@ -1491,7 +1877,10 @@ def api_create_video():
 
     try:
 
-        data = request.get_json() or {}
+        data = (
+            request.get_json()
+            or {}
+        )
 
         story = data.get(
             "story"
@@ -1507,9 +1896,12 @@ def api_create_video():
         if not story:
 
             return jsonify({
+
                 "success": False,
+
                 "error":
                     "Story is required."
+
             }), 400
 
         if duration not in [
@@ -1518,9 +1910,12 @@ def api_create_video():
         ]:
 
             return jsonify({
+
                 "success": False,
+
                 "error":
                     "Duration must be 30 or 60 seconds."
+
             }), 400
 
         job_id = uuid.uuid4().hex
@@ -1528,28 +1923,47 @@ def api_create_video():
         with JOB_LOCK:
 
             JOBS[job_id] = {
-                "status": "starting",
+
+                "status":
+                    "starting",
+
                 "message":
                     "Starting video generation...",
-                "progress": 0,
-                "video_url": None
+
+                "progress":
+                    0,
+
+                "video_url":
+                    None,
+
+                "download_url":
+                    None
             }
 
         thread = threading.Thread(
+
             target=create_video,
+
             args=(
                 job_id,
                 story,
                 duration
             ),
+
             daemon=True
         )
 
         thread.start()
 
         return jsonify({
+
             "success": True,
-            "job_id": job_id
+
+            "job_id":
+                job_id,
+
+            "status":
+                "starting"
         })
 
     except Exception as e:
@@ -1560,8 +1974,11 @@ def api_create_video():
         )
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         }), 500
 
 
@@ -1581,22 +1998,27 @@ def video_status(job_id):
     if not job:
 
         return jsonify({
+
             "success": False,
+
             "error":
                 "Job not found."
+
         }), 404
 
-    # Return both formats so old/new
-    # frontends can understand the response.
-
     return jsonify({
+
         "success": True,
 
         "status":
-            job["status"],
+            job.get(
+                "status"
+            ),
 
         "message":
-            job["message"],
+            job.get(
+                "message"
+            ),
 
         "progress":
             job.get(
@@ -1609,13 +2031,18 @@ def video_status(job_id):
                 "video_url"
             ),
 
+        "download_url":
+            job.get(
+                "download_url"
+            ),
+
         "job":
             job
     })
 
 
 # ============================================================
-# GENERATED FILES
+# GENERATED MP4 FILES
 # ============================================================
 
 @app.route(
@@ -1623,14 +2050,38 @@ def video_status(job_id):
 )
 def generated_file(filename):
 
-    return send_from_directory(
-        OUTPUT_DIR,
+    file_path = (
+        OUTPUT_DIR /
         filename
+    )
+
+    if not file_path.exists():
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Video file not found."
+
+        }), 404
+
+    return send_from_directory(
+
+        OUTPUT_DIR,
+
+        filename,
+
+        as_attachment=False,
+
+        mimetype="video/mp4",
+
+        max_age=0
     )
 
 
 # ============================================================
-# START
+# START SERVER
 # ============================================================
 
 if __name__ == "__main__":
@@ -1642,7 +2093,36 @@ if __name__ == "__main__":
         )
     )
 
+    print(
+        "===================================="
+    )
+
+    print(
+        "AfriToon Studio Backend"
+    )
+
+    print(
+        f"Port: {port}"
+    )
+
+    print(
+        f"Base URL: {BASE_URL or 'NOT SET'}"
+    )
+
+    print(
+        f"FFmpeg: {shutil.which('ffmpeg')}"
+    )
+
+    print(
+        f"Gemini: {'YES' if API_KEY else 'NO'}"
+    )
+
+    print(
+        "===================================="
+    )
+
     app.run(
         host="0.0.0.0",
-        port=port
+        port=port,
+        threaded=True
     )
