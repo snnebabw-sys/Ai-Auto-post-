@@ -16,7 +16,6 @@ from google.genai import types
 
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
-import imageio_ffmpeg
 
 
 # ============================================================
@@ -102,7 +101,15 @@ def get_job(job_id):
 # ============================================================
 
 def get_ffmpeg():
-    return imageio_ffmpeg.get_ffmpeg()
+
+    ffmpeg = shutil.which("ffmpeg")
+
+    if not ffmpeg:
+        raise RuntimeError(
+            "FFmpeg is not installed on the Render server."
+        )
+
+    return ffmpeg
 
 
 # ============================================================
