@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ============================================================
 
 app = Flask(__name__)
-CORS(app, origins="*")
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "generated"
@@ -35,19 +35,26 @@ JOBS = {}
 JOBS_LOCK = threading.Lock()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-BASE_URL = os.getenv("BASE_URL", "").strip().rstrip("/")
+
+BASE_URL = os.getenv(
+    "BASE_URL",
+    ""
+).strip().rstrip("/")
+
 GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-3.5-flash-lite"
-)
+    "gemini-2.5-flash"
+).strip()
 
 MAX_SCENES = 12
-MAX_DIALOGUE_LINES = 60
+MAX_DIALOGUE_LINES = 100
 MAX_VISIBLE_CHARACTERS = 8
 
 WIDTH = 480
 HEIGHT = 854
-FPS = 8
+
+# Higher FPS gives smoother animation.
+FPS = 12
 
 
 # ============================================================
@@ -60,12 +67,20 @@ def now():
 
 def safe_filename(value):
     value = str(value or "")
-    value = re.sub(r"[^a-zA-Z0-9._-]+", "_", value)
+    value = re.sub(
+        r"[^a-zA-Z0-9._-]+",
+        "_",
+        value
+    )
     return value[:120] or "video"
 
 
 def normalize_name(value):
-    return re.sub(r"\s+", " ", str(value or "").strip())
+    return re.sub(
+        r"\s+",
+        " ",
+        str(value or "").strip()
+    )
 
 
 def name_key(value):
@@ -73,13 +88,22 @@ def name_key(value):
 
 
 def deterministic_number(value):
-    digest = hashlib.md5(str(value).encode("utf-8")).hexdigest()
-    return int(digest[:10], 16)
+    digest = hashlib.md5(
+        str(value).encode("utf-8")
+    ).hexdigest()
+
+    return int(
+        digest[:10],
+        16
+    )
 
 
 def clamp(value, minimum, maximum):
     try:
-        return max(minimum, min(maximum, value))
+        return max(
+            minimum,
+            min(maximum, value)
+        )
     except Exception:
         return minimum
 
@@ -89,6 +113,7 @@ def clamp(value, minimum, maximum):
 # ============================================================
 
 def get_font(size=22, bold=False):
+
     candidates = []
 
     if bold:
@@ -103,9 +128,14 @@ def get_font(size=22, bold=False):
         ]
 
     for path in candidates:
+
         if os.path.exists(path):
+
             try:
-                return ImageFont.truetype(path, size)
+                return ImageFont.truetype(
+                    path,
+                    size
+                )
             except Exception:
                 pass
 
@@ -116,19 +146,10 @@ def get_font(size=22, bold=False):
 # COLOR SAFETY
 # ============================================================
 
-# Gemini may return:
-# "dark brown"
-# "light brown"
-# "yellow shirt"
-# "deep blue"
-# etc.
-#
-# PIL does NOT accept many of these as colors.
-# Everything goes through color_to_hex() before drawing.
-
 COLOR_MAP = {
     "black": "#151515",
     "white": "#FFFFFF",
+
     "red": "#D64545",
     "dark red": "#8F2020",
     "light red": "#F06A6A",
@@ -181,10 +202,6 @@ COLOR_MAP = {
 
 
 def color_to_hex(value, fallback="#777777"):
-    """
-    Converts Gemini/user color descriptions into safe PIL hex colors.
-    NEVER returns an unsafe natural-language color.
-    """
 
     if value is None:
         return fallback
@@ -194,12 +211,16 @@ def color_to_hex(value, fallback="#777777"):
     if not text:
         return fallback
 
-    # Already valid 6-digit hex
-    if re.fullmatch(r"#[0-9a-f]{6}", text):
+    if re.fullmatch(
+        r"#[0-9a-f]{6}",
+        text
+    ):
         return text.upper()
 
-    # 3-digit hex
-    if re.fullmatch(r"#[0-9a-f]{3}", text):
+    if re.fullmatch(
+        r"#[0-9a-f]{3}",
+        text
+    ):
         return (
             "#"
             + text[1] * 2
@@ -207,24 +228,42 @@ def color_to_hex(value, fallback="#777777"):
             + text[3] * 2
         ).upper()
 
-    # rgb(...)
     rgb_match = re.fullmatch(
         r"rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)",
         text
     )
 
     if rgb_match:
-        r = clamp(int(rgb_match.group(1)), 0, 255)
-        g = clamp(int(rgb_match.group(2)), 0, 255)
-        b = clamp(int(rgb_match.group(3)), 0, 255)
+
+        r = clamp(
+            int(rgb_match.group(1)),
+            0,
+            255
+        )
+
+        g = clamp(
+            int(rgb_match.group(2)),
+            0,
+            255
+        )
+
+        b = clamp(
+            int(rgb_match.group(3)),
+            0,
+            255
+        )
+
         return f"#{r:02X}{g:02X}{b:02X}"
 
-    # Exact match
     if text in COLOR_MAP:
         return COLOR_MAP[text]
 
-    # Longest color phrase first
-    for color_name in sorted(COLOR_MAP.keys(), key=len, reverse=True):
+    for color_name in sorted(
+        COLOR_MAP.keys(),
+        key=len,
+        reverse=True
+    ):
+
         if color_name in text:
             return COLOR_MAP[color_name]
 
@@ -232,7 +271,7 @@ def color_to_hex(value, fallback="#777777"):
 
 
 # ============================================================
-# CHARACTER DESIGN PALETTES
+# CHARACTER DESIGN
 # ============================================================
 
 SKIN_TONES = [
@@ -287,33 +326,39 @@ HAIR_STYLES = [
 ]
 
 
-# ============================================================
-# CHARACTER PROFILES
-# ============================================================
+def build_character_profile(
+    name,
+    index,
+    raw_profile=None
+):
 
-def build_character_profile(name, index, raw_profile=None):
     name = normalize_name(name)
 
     seed = deterministic_number(name)
 
     skin = SKIN_TONES[
-        (seed + index) % len(SKIN_TONES)
+        (seed + index)
+        % len(SKIN_TONES)
     ]
 
     shirt = SHIRT_COLORS[
-        (seed // 7 + index) % len(SHIRT_COLORS)
+        (seed // 7 + index)
+        % len(SHIRT_COLORS)
     ]
 
     pants = PANTS_COLORS[
-        (seed // 13 + index) % len(PANTS_COLORS)
+        (seed // 13 + index)
+        % len(PANTS_COLORS)
     ]
 
     hair = HAIR_COLORS[
-        (seed // 19 + index) % len(HAIR_COLORS)
+        (seed // 19 + index)
+        % len(HAIR_COLORS)
     ]
 
     hairstyle = HAIR_STYLES[
-        (seed // 23 + index) % len(HAIR_STYLES)
+        (seed // 23 + index)
+        % len(HAIR_STYLES)
     ]
 
     gender = ""
@@ -322,11 +367,17 @@ def build_character_profile(name, index, raw_profile=None):
     if isinstance(raw_profile, dict):
 
         gender = str(
-            raw_profile.get("gender", "")
+            raw_profile.get(
+                "gender",
+                ""
+            )
         ).strip()
 
         age = str(
-            raw_profile.get("age", "")
+            raw_profile.get(
+                "age",
+                ""
+            )
         ).strip()
 
         supplied_skin = (
@@ -337,6 +388,11 @@ def build_character_profile(name, index, raw_profile=None):
         supplied_shirt = (
             raw_profile.get("clothing_color")
             or raw_profile.get("shirt_color")
+        )
+
+        supplied_pants = (
+            raw_profile.get("pants_color")
+            or raw_profile.get("trouser_color")
         )
 
         supplied_hair = (
@@ -361,6 +417,12 @@ def build_character_profile(name, index, raw_profile=None):
                 shirt
             )
 
+        if supplied_pants:
+            pants = color_to_hex(
+                supplied_pants,
+                pants
+            )
+
         if supplied_hair:
             hair = color_to_hex(
                 supplied_hair,
@@ -368,9 +430,13 @@ def build_character_profile(name, index, raw_profile=None):
             )
 
         if supplied_style:
-            style = str(supplied_style).lower()
+
+            style = str(
+                supplied_style
+            ).lower()
 
             for possible in HAIR_STYLES:
+
                 if possible in style:
                     hairstyle = possible
                     break
@@ -384,7 +450,11 @@ def build_character_profile(name, index, raw_profile=None):
         "hairstyle": hairstyle,
         "gender": gender,
         "age": age,
-        "clothing": f"{shirt} shirt and {pants} trousers",
+        "clothing": (
+            f"{shirt} shirt and "
+            f"{pants} trousers"
+        ),
+        "clothing_type": "shirt",
         "current_outfit": {
             "shirt": shirt,
             "pants": pants
@@ -393,39 +463,43 @@ def build_character_profile(name, index, raw_profile=None):
 
 
 # ============================================================
-# CLOTHING CHANGES
+# CLOTHING
 # ============================================================
 
-def apply_clothing_instruction(profile, clothing_text):
-    """
-    Allows prompts such as:
-
-    "wearing a red dress"
-    "changes into a blue shirt"
-    "wears yellow clothes"
-    "now wearing a black suit"
-    """
+def apply_clothing_instruction(
+    profile,
+    clothing_text
+):
 
     if not clothing_text:
         return profile
 
-    text = str(clothing_text).lower()
+    text = str(
+        clothing_text
+    ).lower()
 
-    color = None
+    found_colors = []
 
     for color_name in sorted(
         COLOR_MAP.keys(),
         key=len,
         reverse=True
     ):
+
         if color_name in text:
-            color = COLOR_MAP[color_name]
-            break
 
-    if color:
-        profile["shirt"] = color
+            if COLOR_MAP[color_name] not in found_colors:
 
-    # Clothing type
+                found_colors.append(
+                    COLOR_MAP[color_name]
+                )
+
+    if found_colors:
+        profile["shirt"] = found_colors[0]
+
+    if len(found_colors) >= 2:
+        profile["pants"] = found_colors[1]
+
     if "dress" in text:
         profile["clothing_type"] = "dress"
 
@@ -438,48 +512,34 @@ def apply_clothing_instruction(profile, clothing_text):
     elif "uniform" in text:
         profile["clothing_type"] = "uniform"
 
-    elif "shirt" in text:
-        profile["clothing_type"] = "shirt"
+    elif "traditional" in text:
+        profile["clothing_type"] = "traditional"
 
     elif "t-shirt" in text or "tee" in text:
         profile["clothing_type"] = "tshirt"
 
-    elif "traditional" in text:
-        profile["clothing_type"] = "traditional"
-
-    else:
-        profile.setdefault(
-            "clothing_type",
-            "shirt"
-        )
-
-    # Second color can be pants/skirt
-    found_colors = []
-
-    for color_name in sorted(
-        COLOR_MAP.keys(),
-        key=len,
-        reverse=True
-    ):
-        if color_name in text:
-            found_colors.append(
-                COLOR_MAP[color_name]
-            )
-
-    if len(found_colors) >= 2:
-        profile["pants"] = found_colors[1]
+    elif "shirt" in text:
+        profile["clothing_type"] = "shirt"
 
     profile["clothing_prompt"] = clothing_text
+
+    profile["current_outfit"] = {
+        "shirt": profile["shirt"],
+        "pants": profile["pants"]
+    }
 
     return profile
 
 
 # ============================================================
-# JSON CLEANING
+# JSON
 # ============================================================
 
 def clean_json(text):
-    text = str(text or "").strip()
+
+    text = str(
+        text or ""
+    ).strip()
 
     text = re.sub(
         r"^```json\s*",
@@ -504,7 +564,9 @@ def clean_json(text):
     end = text.rfind("}")
 
     if start >= 0 and end > start:
-        text = text[start:end + 1]
+        text = text[
+            start:end + 1
+        ]
 
     return text
 
@@ -514,35 +576,41 @@ def clean_json(text):
 # ============================================================
 
 def looks_like_explicit_script(text):
+
     if not text:
         return False
 
     text = str(text)
 
-    scene_pattern = re.search(
+    if re.search(
         r"(?im)^\s*(scene|escena)\s*\d*",
         text
-    )
+    ):
+        return True
 
-    dialogue_pattern = re.search(
-        r"(?m)^\s*[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 _'-]{0,50}\s*:\s*\S+",
+    if re.search(
+        r"(?im)^\s*[^:\n]{1,60}\s+(?:says|asks|replies|responds)\s*:",
         text
-    )
+    ):
+        return True
 
-    screenplay_pattern = re.search(
-        r"(?im)^\s*(action|visual|location|time)\s*:",
+    if re.search(
+        r"(?m)^\s*[^:\n]{1,60}\s*:\s*[\"“].+[\"”]\s*$",
         text
-    )
+    ):
+        return True
 
-    return bool(
-        scene_pattern
-        or dialogue_pattern
-        or screenplay_pattern
-    )
+    if re.search(
+        r"(?im)^\s*(action|visual|location|setting|camera|time)\s*:",
+        text
+    ):
+        return True
+
+    return False
 
 
 # ============================================================
-# EXPLICIT SCRIPT PARSER
+# RESERVED LABELS
 # ============================================================
 
 RESERVED_LABELS = {
@@ -559,18 +627,132 @@ RESERVED_LABELS = {
 }
 
 
+# ============================================================
+# SCRIPT DIALOGUE EXTRACTION
+# ============================================================
+
+def extract_natural_dialogue(line):
+    """
+    Supports:
+
+    Sarah says: "Hello."
+    David says: "Yes."
+    David stands up and says: "Come here."
+    Sarah walks into the room and says: "Hi."
+
+    Returns:
+        character name,
+        dialogue,
+        action
+    """
+
+    line = str(line or "").strip()
+
+    if not line:
+        return None
+
+    # --------------------------------------------------------
+    # Quoted dialogue
+    # --------------------------------------------------------
+
+    quoted = re.search(
+        r'["“](.*?)["”]\s*$',
+        line
+    )
+
+    if not quoted:
+        return None
+
+    dialogue_text = quoted.group(1).strip()
+
+    if not dialogue_text:
+        return None
+
+    before = line[
+        :quoted.start()
+    ].strip()
+
+    before = re.sub(
+        r"[:\-–—]\s*$",
+        "",
+        before
+    ).strip()
+
+    # --------------------------------------------------------
+    # "David says"
+    # --------------------------------------------------------
+
+    speaker_match = re.match(
+        r"^(.+?)\s+"
+        r"(?:says|said|asks|asked|replies|replied|"
+        r"responds|responded|shouts|shouted|"
+        r"yells|yelled|whispers|whispered)"
+        r"\s*$",
+        before,
+        flags=re.IGNORECASE
+    )
+
+    if speaker_match:
+
+        speaker = normalize_name(
+            speaker_match.group(1)
+        )
+
+        return {
+            "speaker": speaker,
+            "text": dialogue_text,
+            "action": "",
+            "emotion": "talking"
+        }
+
+    # --------------------------------------------------------
+    # "David stands up and says"
+    # --------------------------------------------------------
+
+    speaker_match = re.match(
+        r"^(.+?)\s+"
+        r"(.+?)\s+"
+        r"(?:says|said|asks|asked|replies|replied|"
+        r"responds|responded|shouts|shouted|"
+        r"yells|yelled|whispers|whispered)"
+        r"\s*$",
+        before,
+        flags=re.IGNORECASE
+    )
+
+    if speaker_match:
+
+        speaker = normalize_name(
+            speaker_match.group(1)
+        )
+
+        action = normalize_name(
+            speaker_match.group(2)
+        )
+
+        return {
+            "speaker": speaker,
+            "text": dialogue_text,
+            "action": action,
+            "emotion": "talking"
+        }
+
+    return None
+
+
+# ============================================================
+# EXPLICIT SCRIPT PARSER
+# ============================================================
+
 def parse_explicit_script(
     script,
     category="General",
     language="English"
 ):
-    """
-    Parses an owner's screenplay without rewriting dialogue.
 
-    The actual dialogue text is preserved.
-    """
-
-    script = str(script or "").strip()
+    script = str(
+        script or ""
+    ).strip()
 
     if not script:
         return None
@@ -582,11 +764,15 @@ def parse_explicit_script(
 
     scenes = []
     current_scene = None
-    current_action = []
+
     character_names = []
     character_profiles = {}
 
-    def new_scene(number=None, title=""):
+    def new_scene(
+        number=None,
+        title=""
+    ):
+
         scene_number = (
             number
             if number is not None
@@ -595,22 +781,28 @@ def parse_explicit_script(
 
         return {
             "scene": scene_number,
-            "title": title or f"Scene {scene_number}",
+            "title": (
+                title
+                or f"Scene {scene_number}"
+            ),
             "location": "open area",
             "time": "day",
-            "camera": "wide",
+            "camera": "wide shot",
             "action": "",
             "characters_present": [],
             "dialogue": [],
+            "character_states": {}
         }
 
     def ensure_scene():
+
         nonlocal current_scene
 
         if current_scene is None:
             current_scene = new_scene()
 
     def add_character(name):
+
         name = normalize_name(name)
 
         if not name:
@@ -625,31 +817,25 @@ def parse_explicit_script(
         ):
             character_names.append(name)
 
-    def add_present(scene, name):
+    def add_present(
+        scene,
+        name
+    ):
+
+        name = normalize_name(name)
+
         add_character(name)
 
         if not any(
-            name_key(x) == name_key(name)
-            for x in scene["characters_present"]
+            name_key(x)
+            == name_key(name)
+            for x in scene[
+                "characters_present"
+            ]
         ):
-            scene["characters_present"].append(
-                normalize_name(name)
-            )
-
-    def flush_actions():
-        nonlocal current_action
-
-        if current_scene is not None:
-            text = " ".join(
-                x.strip()
-                for x in current_action
-                if x.strip()
-            )
-
-            if text:
-                current_scene["action"] = text
-
-        current_action = []
+            scene[
+                "characters_present"
+            ].append(name)
 
     for raw_line in lines:
 
@@ -658,24 +844,30 @@ def parse_explicit_script(
         if not line:
             continue
 
-        # ----------------------------------------------------
+        # ====================================================
         # SCENE HEADER
-        # ----------------------------------------------------
+        # ====================================================
 
         scene_match = re.match(
             r"^\s*(?:SCENE|Scene|ESCENA)\s*"
-            r"(\d+)?\s*(?:[:\-–—]\s*)?(.*)$",
+            r"(\d+)?\s*"
+            r"(?:[:\-–—]\s*)?"
+            r"(.*)$",
             line
         )
 
         if scene_match:
 
-            flush_actions()
-
             if current_scene is not None:
-                scenes.append(current_scene)
 
-            number_text = scene_match.group(1)
+                scenes.append(
+                    current_scene
+                )
+
+            number_text = (
+                scene_match.group(1)
+            )
+
             title = (
                 scene_match.group(2).strip()
                 or f"Scene {len(scenes) + 1}"
@@ -696,9 +888,9 @@ def parse_explicit_script(
 
         ensure_scene()
 
-        # ----------------------------------------------------
+        # ====================================================
         # LOCATION
-        # ----------------------------------------------------
+        # ====================================================
 
         location_match = re.match(
             r"^\s*(?:LOCATION|SETTING)\s*:\s*(.+)$",
@@ -707,14 +899,16 @@ def parse_explicit_script(
         )
 
         if location_match:
+
             current_scene["location"] = (
                 location_match.group(1).strip()
             )
+
             continue
 
-        # ----------------------------------------------------
+        # ====================================================
         # TIME
-        # ----------------------------------------------------
+        # ====================================================
 
         time_match = re.match(
             r"^\s*TIME\s*:\s*(.+)$",
@@ -723,14 +917,16 @@ def parse_explicit_script(
         )
 
         if time_match:
+
             current_scene["time"] = (
                 time_match.group(1).strip()
             )
+
             continue
 
-        # ----------------------------------------------------
+        # ====================================================
         # CAMERA
-        # ----------------------------------------------------
+        # ====================================================
 
         camera_match = re.match(
             r"^\s*CAMERA\s*:\s*(.+)$",
@@ -739,14 +935,16 @@ def parse_explicit_script(
         )
 
         if camera_match:
+
             current_scene["camera"] = (
                 camera_match.group(1).strip()
             )
+
             continue
 
-        # ----------------------------------------------------
+        # ====================================================
         # ACTION / VISUAL
-        # ----------------------------------------------------
+        # ====================================================
 
         action_match = re.match(
             r"^\s*(?:ACTION|VISUAL)\s*:\s*(.+)$",
@@ -755,36 +953,103 @@ def parse_explicit_script(
         )
 
         if action_match:
-            current_action.append(
+
+            action_text = (
                 action_match.group(1).strip()
             )
+
+            if current_scene["action"]:
+                current_scene["action"] += " "
+
+            current_scene["action"] += action_text
+
             continue
 
-        # ----------------------------------------------------
-        # DIALOGUE
-        # ----------------------------------------------------
+        # ====================================================
+        # NATURAL DIALOGUE
+        # ====================================================
 
-        dialogue_match = re.match(
-            r"^\s*([^:]{1,60}?)\s*:\s*(.+?)\s*$",
+        natural_dialogue = extract_natural_dialogue(
             line
         )
 
-        if dialogue_match:
+        if natural_dialogue:
 
             speaker = normalize_name(
-                dialogue_match.group(1)
+                natural_dialogue["speaker"]
             )
 
-            dialogue_text = dialogue_match.group(2).strip()
-
-            if name_key(speaker) not in RESERVED_LABELS:
+            if (
+                speaker
+                and name_key(speaker)
+                not in RESERVED_LABELS
+            ):
 
                 add_present(
                     current_scene,
                     speaker
                 )
 
-                current_scene["dialogue"].append({
+                current_scene[
+                    "dialogue"
+                ].append(
+                    natural_dialogue
+                )
+
+                # Save action too
+                if natural_dialogue.get(
+                    "action"
+                ):
+
+                    if current_scene["action"]:
+                        current_scene["action"] += " "
+
+                    current_scene["action"] += (
+                        speaker
+                        + " "
+                        + natural_dialogue["action"]
+                        + "."
+                    )
+
+                continue
+
+        # ====================================================
+        # STANDARD:
+        #
+        # David: "Hello"
+        # ====================================================
+
+        standard_match = re.match(
+            r'^\s*([^:]{1,60}?)\s*:\s*'
+            r'["“](.*?)["”]\s*$',
+            line
+        )
+
+        if standard_match:
+
+            speaker = normalize_name(
+                standard_match.group(1)
+            )
+
+            dialogue_text = (
+                standard_match.group(2).strip()
+            )
+
+            if (
+                speaker
+                and name_key(speaker)
+                not in RESERVED_LABELS
+                and dialogue_text
+            ):
+
+                add_present(
+                    current_scene,
+                    speaker
+                )
+
+                current_scene[
+                    "dialogue"
+                ].append({
                     "speaker": speaker,
                     "text": dialogue_text,
                     "action": "",
@@ -793,26 +1058,87 @@ def parse_explicit_script(
 
                 continue
 
-        # ----------------------------------------------------
-        # *ACTION*
-        # ----------------------------------------------------
+        # ====================================================
+        # PLAIN:
+        #
+        # David: Hello
+        # ====================================================
+
+        plain_match = re.match(
+            r"^\s*([^:]{1,60}?)\s*:\s*(.+?)\s*$",
+            line
+        )
+
+        if plain_match:
+
+            speaker = normalize_name(
+                plain_match.group(1)
+            )
+
+            dialogue_text = (
+                plain_match.group(2).strip()
+            )
+
+            if (
+                speaker
+                and name_key(speaker)
+                not in RESERVED_LABELS
+                and dialogue_text
+            ):
+
+                add_present(
+                    current_scene,
+                    speaker
+                )
+
+                current_scene[
+                    "dialogue"
+                ].append({
+                    "speaker": speaker,
+                    "text": dialogue_text,
+                    "action": "",
+                    "emotion": "talking"
+                })
+
+                continue
+
+        # ====================================================
+        # STAR ACTION
+        # ====================================================
 
         if (
             line.startswith("*")
             and line.endswith("*")
         ):
-            current_action.append(
-                line.strip("* ").strip()
-            )
+
+            action = line.strip(
+                "* "
+            ).strip()
+
+            if current_scene["action"]:
+                current_scene["action"] += " "
+
+            current_scene["action"] += action
+
             continue
 
-        # ----------------------------------------------------
-        # NORMAL NARRATIVE ACTION
-        # ----------------------------------------------------
+        # ====================================================
+        # NORMAL ACTION
+        # ====================================================
 
-        current_action.append(line)
+        if current_scene["action"]:
+            current_scene["action"] += " "
 
-    flush_actions()
+        current_scene["action"] += line
+
+        # Try to detect names from obvious action
+        for known_name in character_names:
+
+            if name_key(known_name) in name_key(line):
+                add_present(
+                    current_scene,
+                    known_name
+                )
 
     if current_scene is not None:
         scenes.append(current_scene)
@@ -820,65 +1146,102 @@ def parse_explicit_script(
     if not scenes:
         return None
 
-    # Extract characters mentioned in scenes
+    # ========================================================
+    # FIND CHARACTERS FROM DIALOGUE/ACTIONS
+    # ========================================================
+
     for scene in scenes:
+
         for name in scene.get(
             "characters_present",
             []
         ):
             add_character(name)
 
-        for line in scene.get(
+        for dialogue in scene.get(
             "dialogue",
             []
         ):
+
             add_character(
-                line.get("speaker", "")
+                dialogue.get(
+                    "speaker",
+                    ""
+                )
             )
 
-    # Create profiles
+    # ========================================================
+    # CREATE CHARACTER PROFILES
+    # ========================================================
+
     characters = []
 
     for index, name in enumerate(
         character_names
     ):
+
         profile = build_character_profile(
             name,
             index
         )
 
-        characters.append(profile)
+        characters.append(
+            profile
+        )
 
         character_profiles[
             name_key(name)
         ] = profile
 
-    # Detect clothing changes in scene text
+    # ========================================================
+    # CLOTHING CHANGES
+    # ========================================================
+
     clothing_patterns = [
-        r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 _'-]{0,50})\s+"
-        r"(?:is\s+now\s+wearing|changes\s+into|wears|"
-        r"puts\s+on|is\s+dressed\s+in)\s+(.+?)(?:\.|$)",
 
         r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 _'-]{0,50})\s+"
-        r"(?:wearing)\s+(.+?)(?:\.|$)",
+        r"(?:is\s+now\s+wearing|changes\s+into|"
+        r"wears|puts\s+on|is\s+dressed\s+in)\s+"
+        r"(.+?)(?:\.|$)",
+
+        r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 _'-]{0,50})\s+"
+        r"(?:is\s+wearing|wearing)\s+"
+        r"(.+?)(?:\.|$)"
     ]
+
+    # ========================================================
+    # IMPORTANT:
+    # Carry clothing state from scene to scene.
+    # ========================================================
+
+    state_profiles = {}
+
+    for key, profile in character_profiles.items():
+
+        state_profiles[key] = dict(profile)
 
     for scene in scenes:
 
-        scene_text = " ".join([
-            str(scene.get("action", "")),
-            str(scene.get("location", "")),
-        ])
+        scene["character_states"] = {}
+
+        scene_text = (
+            str(scene.get("action", ""))
+        )
 
         for dialogue in scene.get(
             "dialogue",
             []
         ):
+
             scene_text += " "
             scene_text += str(
-                dialogue.get("action", "")
+                dialogue.get(
+                    "action",
+                    ""
+                )
             )
 
+        # Detect clothing instructions
         for pattern in clothing_patterns:
 
             matches = re.findall(
@@ -893,33 +1256,34 @@ def parse_explicit_script(
                     character_name
                 )
 
-                profile = character_profiles.get(
+                profile = state_profiles.get(
                     key
                 )
 
                 if profile:
+
                     apply_clothing_instruction(
                         profile,
                         clothing
                     )
 
-    # Scene-specific character clothing snapshots
-    for scene in scenes:
+        # Snapshot current clothing
+        for name in scene.get(
+            "characters_present",
+            []
+        ):
 
-        scene["character_states"] = {}
+            key = name_key(name)
 
-        for name in scene[
-            "characters_present"
-        ]:
-
-            profile = character_profiles.get(
-                name_key(name)
+            profile = state_profiles.get(
+                key
             )
 
             if profile:
+
                 scene[
                     "character_states"
-                ][name_key(name)] = {
+                ][key] = {
                     "shirt": profile["shirt"],
                     "pants": profile["pants"],
                     "clothing_type": profile.get(
@@ -928,6 +1292,15 @@ def parse_explicit_script(
                     )
                 }
 
+    # Apply final profile state
+    for key, profile in state_profiles.items():
+
+        if key in character_profiles:
+
+            character_profiles[key].update(
+                profile
+            )
+
     return {
         "title": scenes[0].get(
             "title",
@@ -935,18 +1308,22 @@ def parse_explicit_script(
         ),
         "category": category,
         "language": language,
-        "characters": characters,
+        "characters": list(
+            character_profiles.values()
+        ),
         "scenes": scenes,
-        "_explicit_script": True,
+        "_explicit_script": True
     }
 
 
 # ============================================================
-# GEMINI CLIENT
+# GEMINI
 # ============================================================
 
 def get_gemini_client():
+
     if not GEMINI_API_KEY:
+
         raise RuntimeError(
             "GEMINI_API_KEY is not configured."
         )
@@ -955,10 +1332,6 @@ def get_gemini_client():
         api_key=GEMINI_API_KEY
     )
 
-
-# ============================================================
-# GEMINI STORY GENERATION
-# ============================================================
 
 def generate_story(
     category,
@@ -973,7 +1346,7 @@ def generate_story(
 You are a professional cartoon movie director,
 screenwriter and storyboard artist.
 
-Create a structured cartoon movie.
+Create a structured 2D cartoon movie.
 
 CATEGORY:
 {category}
@@ -987,76 +1360,54 @@ TARGET DURATION:
 LANGUAGE:
 {language}
 
-IMPORTANT:
+RULES:
 
-1. Use ONLY character names that belong to the
-   user's story.
+1. Use character names that fit the user's story.
 
-2. NEVER invent hard-coded names such as Kofi,
-   Amina or other default characters.
+2. Never hard-code names such as Kofi or Amina
+   unless the user actually requested those names.
 
-3. Characters must remain visually consistent.
+3. Keep every character visually consistent.
 
-4. Each scene must have a real environment:
-   bedroom, living room, kitchen, classroom,
-   office, street, restaurant, hospital,
-   shop, farm, beach, etc.
+4. Characters must have different appearances.
 
-5. Characters must be able to:
+5. Every scene must have a real environment.
+
+6. Characters can:
+   - walk
    - enter
    - leave
-   - walk
    - sit
    - stand
-   - look at another character
    - face another character
    - point
    - wave
    - hold objects
    - perform simple actions.
 
-6. When two characters talk, they should face each
-   other.
+7. When characters talk, they should face each other.
 
-7. Only the current speaker should be animated as
-   speaking.
+8. Only the current speaker should have talking
+   mouth animation.
 
-8. Characters who are not speaking should remain
-   visible and react naturally.
+9. Use cinematic camera shots.
 
-9. If the story says a character changes clothes,
-   preserve that clothing change from that scene
-   onward until another clothing change occurs.
+10. Make it feel like a cartoon movie rather than
+    a slideshow.
 
-10. Use cinematic camera directions:
-    - establishing shot
-    - wide shot
-    - medium shot
-    - close-up
-    - two shot
-    - over-the-shoulder
+11. Return ONLY valid JSON.
 
-11. Make scenes feel like a normal cartoon movie,
-    NOT a slideshow.
-
-12. Follow the user's story order.
-
-13. If the user supplied exact dialogue, preserve
-    the dialogue exactly.
-
-Return ONLY valid JSON.
-
-JSON STRUCTURE:
+JSON:
 
 {{
   "title": "Movie title",
 
   "characters": [
     {{
-      "name": "exact character name",
+      "name": "character name",
       "gender": "optional",
       "age": "optional",
-      "skin_tone": "dark brown",
+      "skin_tone": "brown",
       "hair_color": "black",
       "hair_style": "short",
       "clothing_color": "blue"
@@ -1066,25 +1417,21 @@ JSON STRUCTURE:
   "scenes": [
     {{
       "scene": 1,
-      "title": "Living Room",
+      "title": "Scene title",
       "location": "living room",
-      "time": "evening",
+      "time": "day",
       "camera": "wide shot",
-
-      "action": "A character enters the room.",
-
+      "action": "Character enters the room.",
       "characters_present": [
-        "Character 1",
-        "Character 2"
+        "character name"
       ],
-
       "dialogue": [
         {{
-          "speaker": "Character 1",
+          "speaker": "character name",
           "text": "Hello.",
-          "action": "walks toward Character 2",
+          "action": "walks toward another character",
           "emotion": "happy",
-          "facing": "Character 2"
+          "facing": "another character"
         }}
       ]
     }}
@@ -1105,7 +1452,13 @@ JSON STRUCTURE:
         response.text
     )
 
-    story = json.loads(raw)
+    try:
+        story = json.loads(raw)
+    except Exception as exc:
+        raise RuntimeError(
+            "Gemini returned invalid JSON: "
+            + str(exc)
+        )
 
     return normalize_story(
         story,
@@ -1122,7 +1475,11 @@ def normalize_story(
     language="English"
 ):
 
-    if not isinstance(story, dict):
+    if not isinstance(
+        story,
+        dict
+    ):
+
         raise ValueError(
             "Gemini returned invalid story data."
         )
@@ -1135,20 +1492,37 @@ def normalize_story(
     characters = []
     character_map = {}
 
-    # --------------------------------------------------------
+    # ========================================================
     # CHARACTERS
-    # --------------------------------------------------------
+    # ========================================================
 
     for item in raw_characters:
 
-        if isinstance(item, str):
-            name = normalize_name(item)
-            raw_profile = {}
-        elif isinstance(item, dict):
+        if isinstance(
+            item,
+            str
+        ):
+
             name = normalize_name(
-                item.get("name", "")
+                item
             )
+
+            raw_profile = {}
+
+        elif isinstance(
+            item,
+            dict
+        ):
+
+            name = normalize_name(
+                item.get(
+                    "name",
+                    ""
+                )
+            )
+
             raw_profile = item
+
         else:
             continue
 
@@ -1166,12 +1540,15 @@ def normalize_story(
             raw_profile
         )
 
-        characters.append(profile)
+        characters.append(
+            profile
+        )
+
         character_map[key] = profile
 
-    # --------------------------------------------------------
+    # ========================================================
     # SCENES
-    # --------------------------------------------------------
+    # ========================================================
 
     raw_scenes = story.get(
         "scenes",
@@ -1240,7 +1617,9 @@ def normalize_story(
             if not clean_name:
                 continue
 
-            key = name_key(clean_name)
+            key = name_key(
+                clean_name
+            )
 
             if key not in character_map:
 
@@ -1249,18 +1628,20 @@ def normalize_story(
                     len(characters)
                 )
 
-                characters.append(profile)
+                characters.append(
+                    profile
+                )
+
                 character_map[key] = profile
 
             if key not in [
                 name_key(x)
                 for x in present
             ]:
-                present.append(clean_name)
 
-        # ----------------------------------------------------
-        # DIALOGUE
-        # ----------------------------------------------------
+                present.append(
+                    clean_name
+                )
 
         dialogue = []
 
@@ -1292,7 +1673,9 @@ def normalize_story(
             if not speaker or not text:
                 continue
 
-            key = name_key(speaker)
+            key = name_key(
+                speaker
+            )
 
             if key not in character_map:
 
@@ -1301,14 +1684,20 @@ def normalize_story(
                     len(characters)
                 )
 
-                characters.append(profile)
+                characters.append(
+                    profile
+                )
+
                 character_map[key] = profile
 
             if key not in [
                 name_key(x)
                 for x in present
             ]:
-                present.append(speaker)
+
+                present.append(
+                    speaker
+                )
 
             dialogue.append({
                 "speaker": speaker,
@@ -1342,9 +1731,11 @@ def normalize_story(
             "action": action,
             "characters_present": present,
             "dialogue": dialogue,
+            "character_states": {}
         })
 
     if not scenes:
+
         raise ValueError(
             "No scenes were generated."
         )
@@ -1361,15 +1752,16 @@ def normalize_story(
         "language": language,
         "characters": characters,
         "scenes": scenes,
-        "_explicit_script": False,
+        "_explicit_script": False
     }
 
 
 # ============================================================
-# ROOM / ENVIRONMENT ENGINE
+# ENVIRONMENT
 # ============================================================
 
 def detect_location(location):
+
     text = str(
         location or ""
     ).lower()
@@ -1387,9 +1779,7 @@ def detect_location(location):
     ]):
         return "bedroom"
 
-    if any(x in text for x in [
-        "kitchen"
-    ]):
+    if "kitchen" in text:
         return "kitchen"
 
     if any(x in text for x in [
@@ -1444,16 +1834,14 @@ def detect_location(location):
     ]):
         return "park"
 
-    if any(x in text for x in [
-        "farm"
-    ]):
+    if "farm" in text:
         return "farm"
 
     return "generic_room"
 
 
 # ============================================================
-# BACKGROUND DRAWING
+# BACKGROUND
 # ============================================================
 
 def draw_scene_background(
@@ -1481,10 +1869,6 @@ def draw_scene_background(
         ]
     )
 
-    # --------------------------------------------------------
-    # SKY / WALL
-    # --------------------------------------------------------
-
     if night:
         wall = "#1C2740"
         floor = "#3B3440"
@@ -1497,7 +1881,6 @@ def draw_scene_background(
         fill=wall
     )
 
-    # Floor
     draw.rectangle(
         [
             0,
@@ -1508,20 +1891,14 @@ def draw_scene_background(
         fill=floor
     )
 
-    # --------------------------------------------------------
-    # GENERIC ROOM
-    # --------------------------------------------------------
-
     if location == "living_room":
 
-        # wall panels
         draw.rectangle(
             [30, 100, WIDTH - 30, 600],
             outline="#A8B3BA",
             width=3
         )
 
-        # window
         draw.rectangle(
             [55, 155, 175, 310],
             fill="#8FC7E7",
@@ -1529,7 +1906,6 @@ def draw_scene_background(
             width=5
         )
 
-        # window cross
         draw.line(
             [115, 155, 115, 310],
             fill="#FFFFFF",
@@ -1542,7 +1918,6 @@ def draw_scene_background(
             width=4
         )
 
-        # sofa
         draw.rounded_rectangle(
             [180, 515, 420, 660],
             radius=20,
@@ -1558,7 +1933,6 @@ def draw_scene_background(
             width=4
         )
 
-        # table
         draw.rectangle(
             [70, 625, 170, 645],
             fill="#704B32"
@@ -1576,7 +1950,6 @@ def draw_scene_background(
 
     elif location == "bedroom":
 
-        # bed
         draw.rectangle(
             [140, 490, 420, 650],
             fill="#D5DCE8",
@@ -1591,7 +1964,6 @@ def draw_scene_background(
             width=4
         )
 
-        # wardrobe
         draw.rectangle(
             [40, 190, 145, 470],
             fill="#72513C",
@@ -1599,7 +1971,6 @@ def draw_scene_background(
             width=4
         )
 
-        # lamp
         draw.rectangle(
             [390, 300, 398, 480],
             fill="#51483E"
@@ -1617,7 +1988,6 @@ def draw_scene_background(
 
     elif location == "kitchen":
 
-        # cabinets
         draw.rectangle(
             [25, 110, WIDTH - 25, 290],
             fill="#B87A4B",
@@ -1626,19 +1996,18 @@ def draw_scene_background(
         )
 
         for x in [80, 180, 280, 380]:
+
             draw.line(
                 [x, 110, x, 290],
                 fill="#6F442C",
                 width=3
             )
 
-        # counter
         draw.rectangle(
             [20, 410, WIDTH - 20, 500],
             fill="#777A7E"
         )
 
-        # sink
         draw.rectangle(
             [210, 420, 330, 470],
             fill="#A9B0B5",
@@ -1646,7 +2015,6 @@ def draw_scene_background(
             width=3
         )
 
-        # fridge
         draw.rectangle(
             [40, 300, 145, 650],
             fill="#E3E5E8",
@@ -1662,7 +2030,6 @@ def draw_scene_background(
 
     elif location == "classroom":
 
-        # board
         draw.rectangle(
             [55, 110, WIDTH - 55, 330],
             fill="#2F5445",
@@ -1670,14 +2037,13 @@ def draw_scene_background(
             width=6
         )
 
-        # teacher desk
         draw.rectangle(
             [165, 500, 350, 580],
             fill="#8C603D"
         )
 
-        # student desks
         for x in [45, 280]:
+
             draw.rectangle(
                 [x, 600, x + 150, 660],
                 fill="#9C6C45"
@@ -1685,7 +2051,6 @@ def draw_scene_background(
 
     elif location == "office":
 
-        # window
         draw.rectangle(
             [45, 120, 205, 340],
             fill="#91C6E6",
@@ -1693,7 +2058,6 @@ def draw_scene_background(
             width=5
         )
 
-        # desk
         draw.rectangle(
             [115, 500, 390, 580],
             fill="#704A30"
@@ -1709,7 +2073,6 @@ def draw_scene_background(
             fill="#704A30"
         )
 
-        # computer
         draw.rectangle(
             [205, 400, 330, 490],
             fill="#333A40"
@@ -1722,7 +2085,6 @@ def draw_scene_background(
 
     elif location == "restaurant":
 
-        # tables
         for cx in [120, 360]:
 
             draw.ellipse(
@@ -1749,7 +2111,6 @@ def draw_scene_background(
 
     elif location == "hospital":
 
-        # hospital bed
         draw.rectangle(
             [110, 475, 390, 600],
             fill="#E9EEF4",
@@ -1764,31 +2125,46 @@ def draw_scene_background(
             width=4
         )
 
-        # medical monitor
         draw.rectangle(
             [350, 260, 430, 390],
             fill="#303A43"
         )
 
         draw.line(
-            [360, 330, 375, 330, 385, 305, 400, 350, 415, 330],
+            [
+                360,
+                330,
+                375,
+                330,
+                385,
+                305,
+                400,
+                350,
+                415,
+                330
+            ],
             fill="#71D38D",
             width=3
         )
 
     elif location == "shop":
 
-        # shelves
         for x in [35, 180, 325]:
 
             draw.rectangle(
-                [x, 160, x + 100, 600],
+                [
+                    x,
+                    160,
+                    x + 100,
+                    600
+                ],
                 fill="#8A5A37",
                 outline="#523A28",
                 width=4
             )
 
             for y in [250, 360, 470]:
+
                 draw.line(
                     [x, y, x + 100, y],
                     fill="#523A28",
@@ -1797,7 +2173,6 @@ def draw_scene_background(
 
     elif location == "street":
 
-        # buildings
         draw.rectangle(
             [20, 200, 150, 680],
             fill="#C78D70"
@@ -1813,15 +2188,24 @@ def draw_scene_background(
             fill="#C4A35B"
         )
 
-        # road
         draw.rectangle(
             [0, 680, WIDTH, HEIGHT],
             fill="#4D4D50"
         )
 
-        for x in range(0, WIDTH, 100):
+        for x in range(
+            0,
+            WIDTH,
+            100
+        ):
+
             draw.rectangle(
-                [x, 765, x + 50, 775],
+                [
+                    x,
+                    765,
+                    x + 50,
+                    775
+                ],
                 fill="#E7DDA8"
             )
 
@@ -1844,19 +2228,24 @@ def draw_scene_background(
 
     elif location == "park":
 
-        # trees
         for x, y in [
             (50, 360),
             (390, 330),
             (240, 290)
         ]:
+
             draw.rectangle(
                 [x - 8, y, x + 8, y + 130],
                 fill="#69452D"
             )
 
             draw.ellipse(
-                [x - 55, y - 60, x + 55, y + 35],
+                [
+                    x - 55,
+                    y - 60,
+                    x + 55,
+                    y + 35
+                ],
                 fill="#4F8A4E"
             )
 
@@ -1872,7 +2261,6 @@ def draw_scene_background(
             fill="#71944A"
         )
 
-        # small house
         draw.rectangle(
             [150, 370, 360, 650],
             fill="#C89B6D"
@@ -1889,14 +2277,12 @@ def draw_scene_background(
 
     else:
 
-        # generic room
         draw.rectangle(
             [45, 130, WIDTH - 45, 600],
             outline="#B4B4B4",
             width=3
         )
 
-        # window
         draw.rectangle(
             [70, 180, 180, 320],
             fill="#91C8E6",
@@ -1904,15 +2290,10 @@ def draw_scene_background(
             width=5
         )
 
-        # table
         draw.rectangle(
             [145, 560, 365, 620],
             fill="#765038"
         )
-
-    # --------------------------------------------------------
-    # LOCATION LABEL
-    # --------------------------------------------------------
 
     label = normalize_name(
         scene.get(
@@ -1921,10 +2302,26 @@ def draw_scene_background(
         )
     )
 
-    font = get_font(16, True)
+    font = get_font(
+        16,
+        True
+    )
+
+    label_width = min(
+        WIDTH - 30,
+        max(
+            150,
+            25 + len(label[:28]) * 9
+        )
+    )
 
     draw.rounded_rectangle(
-        [15, 15, min(WIDTH - 15, 15 + 230), 50],
+        [
+            15,
+            15,
+            label_width,
+            50
+        ],
         radius=10,
         fill="#000000"
     )
@@ -1938,10 +2335,11 @@ def draw_scene_background(
 
 
 # ============================================================
-# CAMERA SYSTEM
+# CAMERA
 # ============================================================
 
 def camera_mode(scene):
+
     camera = str(
         scene.get(
             "camera",
@@ -1972,15 +2370,17 @@ def camera_mode(scene):
 # ============================================================
 
 def base_character_positions(count):
+
     positions = [
-        (80, 560),
-        (190, 560),
-        (300, 560),
-        (400, 560),
-        (135, 650),
-        (245, 650),
-        (355, 650),
-        (60, 680),
+        (75, 555),
+        (175, 555),
+        (275, 555),
+        (375, 555),
+
+        (110, 640),
+        (210, 640),
+        (310, 640),
+        (410, 640)
     ]
 
     return positions[:count]
@@ -2000,7 +2400,6 @@ def calculate_position(
     x = base_x
     y = base_y
 
-    # Walking direction
     if "walks left" in text:
         x -= 45
 
@@ -2010,13 +2409,18 @@ def calculate_position(
     elif "walks toward" in text:
         x += 20
 
-    elif "enters" in text:
+    elif "approaches" in text:
         x += 20
 
-    elif "exits" in text or "leaves" in text:
+    elif "enters" in text:
+        x += 25
+
+    elif (
+        "exits" in text
+        or "leaves" in text
+    ):
         x += 70
 
-    # Sitting
     if any(
         word in text
         for word in [
@@ -2029,29 +2433,34 @@ def calculate_position(
     ):
         y += 40
 
-    # Standing
     if "stands" in text:
         y -= 15
 
     return (
-        clamp(x, 35, WIDTH - 35),
-        clamp(y, 350, HEIGHT - 70)
+        clamp(
+            x,
+            40,
+            WIDTH - 40
+        ),
+        clamp(
+            y,
+            350,
+            HEIGHT - 90
+        )
     )
 
 
 # ============================================================
-# FACING SYSTEM
+# FACING
 # ============================================================
 
 def determine_facing(
     character_name,
     speaker,
     dialogue,
-    all_names,
-    positions
+    all_names
 ):
 
-    # Explicit Gemini direction
     explicit = normalize_name(
         dialogue.get(
             "facing",
@@ -2060,21 +2469,25 @@ def determine_facing(
     )
 
     if explicit:
+
         for name in all_names:
-            if name_key(name) == name_key(explicit):
+
+            if name_key(name) == name_key(
+                explicit
+            ):
+
                 return name
 
-    # Speaker automatically faces listener
     if name_key(character_name) == name_key(
         speaker
     ):
-        others = [
-            x for x in all_names
-            if name_key(x) != name_key(character_name)
-        ]
 
-        if others:
-            return others[0]
+        for name in all_names:
+
+            if name_key(name) != name_key(
+                character_name
+            ):
+                return name
 
     return ""
 
@@ -2093,7 +2506,8 @@ def draw_character(
     talking=False,
     emotion="neutral",
     seated=False,
-    walking=False
+    walking=False,
+    animation_phase=0
 ):
 
     skin = color_to_hex(
@@ -2121,33 +2535,43 @@ def draw_character(
         "shirt"
     )
 
-    # --------------------------------------------------------
-    # ANIMATION
-    # --------------------------------------------------------
+    # ========================================================
+    # DETERMINISTIC ANIMATION
+    # ========================================================
 
     bob = 0
 
     if walking:
+
         bob = int(
-            math.sin(time.time() * 7) * 3
+            math.sin(
+                animation_phase * 2.0
+            ) * 3
         )
 
     if talking:
+
         bob += int(
-            math.sin(time.time() * 12) * 2
+            math.sin(
+                animation_phase * 3.0
+            ) * 2
         )
 
     y += bob
 
-    # --------------------------------------------------------
-    # SCALE
-    # --------------------------------------------------------
-
     s = scale
 
-    # Head
-    head_w = int(74 * s)
-    head_h = int(86 * s)
+    # ========================================================
+    # HEAD
+    # ========================================================
+
+    head_w = int(
+        74 * s
+    )
+
+    head_h = int(
+        86 * s
+    )
 
     head_left = int(
         x - head_w / 2
@@ -2174,12 +2598,15 @@ def draw_character(
         ],
         fill=skin,
         outline="#3C2418",
-        width=max(1, int(2 * s))
+        width=max(
+            1,
+            int(2 * s)
+        )
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # HAIR
-    # --------------------------------------------------------
+    # ========================================================
 
     hairstyle = profile.get(
         "hairstyle",
@@ -2207,6 +2634,7 @@ def draw_character(
             30,
             12
         ):
+
             draw.ellipse(
                 [
                     x + int(dx * s) - 14,
@@ -2251,9 +2679,9 @@ def draw_character(
             fill=hair
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # EYES
-    # --------------------------------------------------------
+    # ========================================================
 
     eye_y = int(
         head_top + 45 * s
@@ -2263,19 +2691,17 @@ def draw_character(
         18 * s
     )
 
-    left_eye_x = int(
-        x - eye_offset
-    )
+    eye_positions = [
+        int(x - eye_offset),
+        int(x + eye_offset)
+    ]
 
-    right_eye_x = int(
-        x + eye_offset
-    )
-
-    # Face direction
     if facing == "left":
         eye_shift = -int(4 * s)
+
     elif facing == "right":
         eye_shift = int(4 * s)
+
     else:
         eye_shift = 0
 
@@ -2284,10 +2710,7 @@ def draw_character(
         int(5 * s)
     )
 
-    for eye_x in [
-        left_eye_x,
-        right_eye_x
-    ]:
+    for eye_x in eye_positions:
 
         draw.ellipse(
             [
@@ -2314,9 +2737,9 @@ def draw_character(
             fill="#111111"
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # MOUTH
-    # --------------------------------------------------------
+    # ========================================================
 
     mouth_y = int(
         head_top + 68 * s
@@ -2328,12 +2751,18 @@ def draw_character(
 
     if talking:
 
+        mouth_open = (
+            7
+            if animation_phase % 2 < 1
+            else 11
+        )
+
         draw.ellipse(
             [
                 int(x - mouth_w / 2),
                 mouth_y - int(6 * s),
                 int(x + mouth_w / 2),
-                mouth_y + int(9 * s)
+                mouth_y + int(mouth_open * s)
             ],
             fill="#4C1717"
         )
@@ -2350,12 +2779,15 @@ def draw_character(
             0,
             180,
             fill="#421C18",
-            width=max(1, int(2 * s))
+            width=max(
+                1,
+                int(2 * s)
+            )
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # BODY
-    # --------------------------------------------------------
+    # ========================================================
 
     body_top = int(
         y - 85 * s
@@ -2369,10 +2801,22 @@ def draw_character(
 
         draw.polygon(
             [
-                (int(x - 35 * s), body_top),
-                (int(x + 35 * s), body_top),
-                (int(x + 65 * s), body_bottom),
-                (int(x - 65 * s), body_bottom)
+                (
+                    int(x - 35 * s),
+                    body_top
+                ),
+                (
+                    int(x + 35 * s),
+                    body_top
+                ),
+                (
+                    int(x + 65 * s),
+                    body_bottom
+                ),
+                (
+                    int(x - 65 * s),
+                    body_bottom
+                )
             ],
             fill=shirt,
             outline="#49352A"
@@ -2387,15 +2831,21 @@ def draw_character(
                 int(x + 36 * s),
                 body_bottom
             ],
-            radius=max(4, int(12 * s)),
+            radius=max(
+                4,
+                int(12 * s)
+            ),
             fill=shirt,
             outline="#49352A",
-            width=max(1, int(2 * s))
+            width=max(
+                1,
+                int(2 * s)
+            )
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # ARMS
-    # --------------------------------------------------------
+    # ========================================================
 
     arm_y = int(
         body_top + 35 * s
@@ -2403,7 +2853,6 @@ def draw_character(
 
     if talking:
 
-        # Speaker raises one arm naturally
         draw.line(
             [
                 int(x + 30 * s),
@@ -2412,7 +2861,10 @@ def draw_character(
                 arm_y - int(28 * s)
             ],
             fill=skin,
-            width=max(3, int(9 * s))
+            width=max(
+                3,
+                int(9 * s)
+            )
         )
 
     else:
@@ -2425,7 +2877,10 @@ def draw_character(
                 arm_y + int(40 * s)
             ],
             fill=skin,
-            width=max(3, int(8 * s))
+            width=max(
+                3,
+                int(8 * s)
+            )
         )
 
         draw.line(
@@ -2436,12 +2891,15 @@ def draw_character(
                 arm_y + int(40 * s)
             ],
             fill=skin,
-            width=max(3, int(8 * s))
+            width=max(
+                3,
+                int(8 * s)
+            )
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # LEGS
-    # --------------------------------------------------------
+    # ========================================================
 
     leg_top = body_bottom
 
@@ -2455,7 +2913,10 @@ def draw_character(
                 leg_top + int(45 * s)
             ],
             fill=pants,
-            width=max(5, int(13 * s))
+            width=max(
+                5,
+                int(13 * s)
+            )
         )
 
         draw.line(
@@ -2466,7 +2927,10 @@ def draw_character(
                 leg_top + int(45 * s)
             ],
             fill=pants,
-            width=max(5, int(13 * s))
+            width=max(
+                5,
+                int(13 * s)
+            )
         )
 
     else:
@@ -2474,35 +2938,50 @@ def draw_character(
         walk_offset = 0
 
         if walking:
+
             walk_offset = int(
-                math.sin(time.time() * 8) * 10
+                math.sin(
+                    animation_phase * 2.2
+                ) * 10
             )
 
         draw.line(
             [
                 int(x - 15 * s),
                 leg_top,
-                int(x - 22 * s + walk_offset),
+                int(
+                    x - 22 * s
+                    + walk_offset
+                ),
                 leg_top + int(75 * s)
             ],
             fill=pants,
-            width=max(5, int(13 * s))
+            width=max(
+                5,
+                int(13 * s)
+            )
         )
 
         draw.line(
             [
                 int(x + 15 * s),
                 leg_top,
-                int(x + 22 * s - walk_offset),
+                int(
+                    x + 22 * s
+                    - walk_offset
+                ),
                 leg_top + int(75 * s)
             ],
             fill=pants,
-            width=max(5, int(13 * s))
+            width=max(
+                5,
+                int(13 * s)
+            )
         )
 
-    # --------------------------------------------------------
-    # NAME LABEL
-    # --------------------------------------------------------
+    # ========================================================
+    # NAME
+    # ========================================================
 
     name = profile.get(
         "name",
@@ -2510,7 +2989,10 @@ def draw_character(
     )
 
     font = get_font(
-        max(12, int(13 * s)),
+        max(
+            12,
+            int(13 * s)
+        ),
         True
     )
 
@@ -2520,7 +3002,9 @@ def draw_character(
         font=font
     )
 
-    text_width = bbox[2] - bbox[0]
+    text_width = (
+        bbox[2] - bbox[0]
+    )
 
     label_x = int(
         x - text_width / 2
@@ -2542,7 +3026,10 @@ def draw_character(
     )
 
     draw.text(
-        [label_x, label_y],
+        [
+            label_x,
+            label_y
+        ],
         name,
         fill="#FFFFFF",
         font=font
@@ -2559,7 +3046,9 @@ def draw_dialogue_box(
     text
 ):
 
-    text = str(text or "").strip()
+    text = str(
+        text or ""
+    ).strip()
 
     if not text:
         return
@@ -2574,17 +3063,19 @@ def draw_dialogue_box(
         True
     )
 
-    max_width = WIDTH - 50
+    max_width = WIDTH - 65
 
-    # Simple wrapping
     words = text.split()
+
     lines = []
     current = ""
 
     for word in words:
 
         candidate = (
-            current + " " + word
+            current
+            + " "
+            + word
         ).strip()
 
         bbox = draw.textbbox(
@@ -2594,7 +3085,9 @@ def draw_dialogue_box(
         )
 
         if bbox[2] - bbox[0] <= max_width:
+
             current = candidate
+
         else:
 
             if current:
@@ -2605,16 +3098,25 @@ def draw_dialogue_box(
             current = word
 
     if current:
-        lines.append(current)
+        lines.append(
+            current
+        )
 
-    lines = lines[:5]
+    lines = lines[:6]
 
     line_height = 22
+
     box_height = (
-        42 + len(lines) * line_height
+        42
+        + len(lines)
+        * line_height
     )
 
-    top = HEIGHT - box_height - 20
+    top = (
+        HEIGHT
+        - box_height
+        - 20
+    )
 
     draw.rounded_rectangle(
         [
@@ -2630,7 +3132,10 @@ def draw_dialogue_box(
     )
 
     draw.text(
-        [32, top + 10],
+        [
+            32,
+            top + 10
+        ],
         speaker,
         fill="#F2C94C",
         font=speaker_font
@@ -2641,7 +3146,10 @@ def draw_dialogue_box(
     for line in lines:
 
         draw.text(
-            [32, y],
+            [
+                32,
+                y
+            ],
             line,
             fill="#FFFFFF",
             font=font
@@ -2651,10 +3159,11 @@ def draw_dialogue_box(
 
 
 # ============================================================
-# MOVIE ACTION ANALYSIS
+# ACTION FLAGS
 # ============================================================
 
 def action_flags(action):
+
     text = str(
         action or ""
     ).lower()
@@ -2686,6 +3195,7 @@ def action_flags(action):
                 "sit",
                 "sits",
                 "sitting",
+                "seated",
                 "sofa",
                 "couch"
             ]
@@ -2698,12 +3208,12 @@ def action_flags(action):
                 "stands",
                 "standing"
             ]
-        ),
+        )
     }
 
 
 # ============================================================
-# TIMELINE
+# AUDIO
 # ============================================================
 
 def get_audio_duration(path):
@@ -2725,8 +3235,15 @@ def get_audio_duration(path):
             text=True
         )
 
-        return float(
-            result.stdout.strip()
+        value = result.stdout.strip()
+
+        duration = float(
+            value
+        )
+
+        return max(
+            0.1,
+            duration
         )
 
     except Exception:
@@ -2747,7 +3264,7 @@ def make_tts(
         "en": "en",
         "es": "es",
         "fr": "fr",
-        "pt": "pt",
+        "pt": "pt"
     }
 
     lang = lang_map.get(
@@ -2816,15 +3333,26 @@ def combine_audio(
         str(output_path)
     ]
 
-    subprocess.run(
+    result = subprocess.run(
         command,
-        check=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        text=True
     )
+
+    if result.returncode != 0:
+
+        raise RuntimeError(
+            "Audio combining failed:\n"
+            + result.stderr[-2500:]
+        )
 
     return output_path
 
+
+# ============================================================
+# TIMELINE
+# ============================================================
 
 def create_timeline(
     story,
@@ -2836,7 +3364,10 @@ def create_timeline(
 
     line_number = 0
 
-    for scene in story["scenes"]:
+    for scene in story.get(
+        "scenes",
+        []
+    ):
 
         dialogue_lines = scene.get(
             "dialogue",
@@ -2847,9 +3378,11 @@ def create_timeline(
 
             line_number += 1
 
-            text = dialogue.get(
-                "text",
-                ""
+            text = str(
+                dialogue.get(
+                    "text",
+                    ""
+                )
             ).strip()
 
             if not text:
@@ -2894,9 +3427,11 @@ def create_timeline(
                     "action",
                     ""
                 ),
-                "speaker": dialogue.get(
-                    "speaker",
-                    ""
+                "speaker": normalize_name(
+                    dialogue.get(
+                        "speaker",
+                        ""
+                    )
                 ),
                 "text": text,
                 "action": dialogue.get(
@@ -2916,14 +3451,13 @@ def create_timeline(
                     duration
                 ),
                 "start": 0,
-                "end": 0,
+                "end": 0
             })
 
             audio_files.append(
                 audio_path
             )
 
-    # Timeline positions
     current = 0
 
     for item in timeline:
@@ -2936,52 +3470,15 @@ def create_timeline(
 
         item["end"] = current
 
-    return timeline, audio_files, current
-
-
-# ============================================================
-# CLOTHING STATE PER SCENE
-# ============================================================
-
-def apply_scene_clothing(
-    profiles,
-    scene
-):
-
-    states = scene.get(
-        "character_states",
-        {}
+    return (
+        timeline,
+        audio_files,
+        current
     )
 
-    for key, state in states.items():
-
-        profile = profiles.get(key)
-
-        if not profile:
-            continue
-
-        if state.get("shirt"):
-            profile["shirt"] = color_to_hex(
-                state["shirt"],
-                profile["shirt"]
-            )
-
-        if state.get("pants"):
-            profile["pants"] = color_to_hex(
-                state["pants"],
-                profile["pants"]
-            )
-
-        if state.get(
-            "clothing_type"
-        ):
-            profile["clothing_type"] = (
-                state["clothing_type"]
-            )
-
 
 # ============================================================
-# DRAW MOVIE FRAME
+# FRAME
 # ============================================================
 
 def draw_frame(
@@ -2993,7 +3490,10 @@ def draw_frame(
 
     image = Image.new(
         "RGB",
-        (WIDTH, HEIGHT),
+        (
+            WIDTH,
+            HEIGHT
+        ),
         "#DDE5EA"
     )
 
@@ -3010,6 +3510,10 @@ def draw_frame(
             "time",
             "day"
         ),
+        "camera": item.get(
+            "camera",
+            "wide"
+        )
     }
 
     draw_scene_background(
@@ -3017,9 +3521,9 @@ def draw_frame(
         scene
     )
 
-    # --------------------------------------------------------
-    # FIND ACTUAL SCENE
-    # --------------------------------------------------------
+    # ========================================================
+    # FIND SCENE
+    # ========================================================
 
     current_scene = None
 
@@ -3046,12 +3550,13 @@ def draw_frame(
     if current_scene is None:
         current_scene = {}
 
-    present = current_scene.get(
-        "characters_present",
-        []
+    present = list(
+        current_scene.get(
+            "characters_present",
+            []
+        )
     )
 
-    # Ensure speaker is present
     speaker = normalize_name(
         item.get(
             "speaker",
@@ -3060,21 +3565,25 @@ def draw_frame(
     )
 
     if speaker and not any(
-        name_key(x) == name_key(speaker)
+        name_key(x)
+        == name_key(speaker)
         for x in present
     ):
-        present = list(present) + [
-            speaker
-        ]
 
-    # Limit rendering
+        present.append(
+            speaker
+        )
+
     present = present[
         :MAX_VISIBLE_CHARACTERS
     ]
 
-    # --------------------------------------------------------
+    if not present:
+        present = [speaker] if speaker else []
+
+    # ========================================================
     # POSITIONS
-    # --------------------------------------------------------
+    # ========================================================
 
     positions = base_character_positions(
         len(present)
@@ -3090,16 +3599,15 @@ def draw_frame(
 
         action = ""
 
-        # Speaker action
         if name_key(name) == name_key(
             speaker
         ):
+
             action = item.get(
                 "action",
                 ""
             )
 
-        # Search scene dialogue for actions
         if not action:
 
             for dialogue in current_scene.get(
@@ -3131,18 +3639,21 @@ def draw_frame(
 
         position_map[
             name_key(name)
-        ] = (x, y)
+        ] = (
+            x,
+            y
+        )
 
-    # --------------------------------------------------------
-    # CAMERA SCALE
-    # --------------------------------------------------------
+    # ========================================================
+    # CAMERA
+    # ========================================================
 
     camera = camera_mode(
         current_scene
     )
 
     if camera == "close":
-        scale = 1.25
+        scale = 1.20
 
     elif camera == "medium":
         scale = 1.05
@@ -3151,18 +3662,27 @@ def draw_frame(
         scale = 0.95
 
     elif camera == "over":
-        scale = 1.0
+        scale = 1.00
 
     else:
+
         scale = (
-            0.80
+            0.72
             if len(present) >= 4
-            else 0.95
+            else 0.90
         )
 
-    # --------------------------------------------------------
+    # ========================================================
+    # ANIMATION PHASE
+    # ========================================================
+
+    animation_phase = (
+        frame_index / FPS
+    )
+
+    # ========================================================
     # DRAW CHARACTERS
-    # --------------------------------------------------------
+    # ========================================================
 
     for index, name in enumerate(
         present
@@ -3185,12 +3705,13 @@ def draw_frame(
         )
 
         # ----------------------------------------------------
-        # Determine facing
+        # Facing
         # ----------------------------------------------------
 
         facing_target = ""
 
         if is_speaker:
+
             facing_target = normalize_name(
                 item.get(
                     "facing",
@@ -3200,16 +3721,15 @@ def draw_frame(
 
             if not facing_target:
 
-                # Find another person
-                # to face.
                 for other in present:
+
                     if name_key(other) != name_key(name):
+
                         facing_target = other
                         break
 
         else:
 
-            # Non-speakers face the speaker
             if speaker:
                 facing_target = speaker
 
@@ -3218,29 +3738,32 @@ def draw_frame(
         if facing_target:
 
             target_pos = position_map.get(
-                name_key(facing_target)
+                name_key(
+                    facing_target
+                )
             )
 
             if target_pos:
 
-                target_x = target_pos[0]
-
-                if target_x < x:
+                if target_pos[0] < x:
                     facing_direction = "left"
+
                 else:
                     facing_direction = "right"
 
         # ----------------------------------------------------
-        # Actions
+        # Action
         # ----------------------------------------------------
 
         action_text = ""
 
         if is_speaker:
+
             action_text = item.get(
                 "action",
                 ""
             )
+
         else:
 
             for dialogue in current_scene.get(
@@ -3266,6 +3789,10 @@ def draw_frame(
             action_text
         )
 
+        # ----------------------------------------------------
+        # Draw
+        # ----------------------------------------------------
+
         draw_character(
             draw,
             profile,
@@ -3283,12 +3810,13 @@ def draw_frame(
                 else "neutral"
             ),
             seated=flags["sitting"],
-            walking=flags["walking"]
+            walking=flags["walking"],
+            animation_phase=animation_phase
         )
 
-    # --------------------------------------------------------
-    # SCENE ACTION
-    # --------------------------------------------------------
+    # ========================================================
+    # ACTION CAPTION
+    # ========================================================
 
     scene_action = str(
         item.get(
@@ -3304,14 +3832,20 @@ def draw_frame(
             False
         )
 
-        caption = scene_action[:100]
+        caption = re.sub(
+            r"\s+",
+            " ",
+            scene_action
+        )
+
+        caption = caption[:100]
 
         draw.rounded_rectangle(
             [
                 15,
                 65,
                 WIDTH - 15,
-                94
+                96
             ],
             radius=8,
             fill="#000000"
@@ -3324,9 +3858,9 @@ def draw_frame(
             font=font
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # DIALOGUE
-    # --------------------------------------------------------
+    # ========================================================
 
     draw_dialogue_box(
         draw,
@@ -3341,7 +3875,40 @@ def draw_frame(
 
 
 # ============================================================
-# FFMPEG
+# JOB HELPERS
+# ============================================================
+
+def update_job(
+    job_id,
+    **updates
+):
+
+    with JOBS_LOCK:
+
+        if job_id not in JOBS:
+            JOBS[job_id] = {}
+
+        JOBS[job_id].update(
+            updates
+        )
+
+        JOBS[job_id]["updated_at"] = now()
+
+
+def get_job(job_id):
+
+    with JOBS_LOCK:
+
+        return dict(
+            JOBS.get(
+                job_id,
+                {}
+            )
+        )
+
+
+# ============================================================
+# VIDEO CREATION
 # ============================================================
 
 def create_video(
@@ -3367,12 +3934,12 @@ def create_video(
             job_id,
             status="rendering",
             progress=5,
-            message="Preparing movie scenes..."
+            message="Preparing movie..."
         )
 
-        # ----------------------------------------------------
-        # CHARACTER PROFILES
-        # ----------------------------------------------------
+        # ====================================================
+        # PROFILES
+        # ====================================================
 
         profiles = {}
 
@@ -3401,32 +3968,35 @@ def create_video(
                 character
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # TIMELINE
-        # ----------------------------------------------------
-
-        timeline, audio_files, audio_duration = (
-            create_timeline(
-                story,
-                work_dir
-            )
-        )
-
-        if not timeline:
-            raise RuntimeError(
-                "The story contains no dialogue."
-            )
+        # ====================================================
 
         update_job(
             job_id,
             status="rendering",
-            progress=15,
-            message="Creating character voices..."
+            progress=10,
+            message="Creating voices..."
         )
 
-        # ----------------------------------------------------
-        # AUDIO
-        # ----------------------------------------------------
+        (
+            timeline,
+            audio_files,
+            audio_duration
+        ) = create_timeline(
+            story,
+            work_dir
+        )
+
+        if not timeline:
+
+            raise RuntimeError(
+                "The story contains no dialogue."
+            )
+
+        # ====================================================
+        # COMBINE AUDIO
+        # ====================================================
 
         combined_audio = (
             work_dir
@@ -3438,10 +4008,9 @@ def create_video(
             combined_audio
         )
 
-        # ----------------------------------------------------
-        # IMPORTANT:
-        # Exact scripts are never cut.
-        # ----------------------------------------------------
+        # ====================================================
+        # DURATION
+        # ====================================================
 
         explicit_script = bool(
             story.get(
@@ -3452,11 +4021,8 @@ def create_video(
 
         if explicit_script:
 
+            # Exact script = full voice duration.
             target_duration = audio_duration
-
-            message = (
-                "Preserving the complete script..."
-            )
 
         else:
 
@@ -3465,20 +4031,21 @@ def create_video(
                 audio_duration
             )
 
-            message = (
-                "Rendering cartoon movie..."
-            )
+        target_duration = max(
+            0.5,
+            target_duration
+        )
 
         update_job(
             job_id,
             status="rendering",
-            progress=25,
-            message=message
+            progress=20,
+            message="Rendering cartoon..."
         )
 
-        # ----------------------------------------------------
-        # FRAME DIRECTORY
-        # ----------------------------------------------------
+        # ====================================================
+        # FRAMES
+        # ====================================================
 
         frames_dir = (
             work_dir
@@ -3501,24 +4068,28 @@ def create_video(
 
         timeline_index = 0
 
-        # ----------------------------------------------------
-        # RENDER FRAMES
-        # ----------------------------------------------------
+        # ====================================================
+        # RENDER
+        # ====================================================
 
         for frame_number in range(
             total_frames
         ):
 
             current_time = (
-                frame_number / FPS
+                frame_number
+                / FPS
             )
 
             while (
                 timeline_index
                 < len(timeline) - 1
                 and current_time
-                >= timeline[timeline_index]["end"]
+                >= timeline[
+                    timeline_index
+                ]["end"]
             ):
+
                 timeline_index += 1
 
             item = timeline[
@@ -3543,16 +4114,24 @@ def create_video(
                 optimize=True
             )
 
-            if frame_number % max(
-                1,
-                FPS * 2
-            ) == 0:
+            if (
+                frame_number
+                % max(
+                    1,
+                    FPS * 2
+                )
+                == 0
+            ):
 
-                progress = 25 + int(
-                    (
-                        frame_number
-                        / total_frames
-                    ) * 55
+                progress = (
+                    20
+                    + int(
+                        (
+                            frame_number
+                            / total_frames
+                        )
+                        * 60
+                    )
                 )
 
                 update_job(
@@ -3563,14 +4142,20 @@ def create_video(
                         progress
                     ),
                     message=(
-                        f"Rendering scene "
-                        f"{item.get('scene', 1)}..."
+                        "Rendering scene "
+                        + str(
+                            item.get(
+                                "scene",
+                                1
+                            )
+                        )
+                        + "..."
                     )
                 )
 
-        # ----------------------------------------------------
-        # FINAL MP4
-        # ----------------------------------------------------
+        # ====================================================
+        # OUTPUT
+        # ====================================================
 
         output_name = (
             safe_filename(
@@ -3595,6 +4180,10 @@ def create_video(
             progress=82,
             message="Encoding MP4..."
         )
+
+        # ====================================================
+        # FFMPEG
+        # ====================================================
 
         ffmpeg_command = [
             "ffmpeg",
@@ -3632,6 +4221,9 @@ def create_video(
 
             "-shortest",
 
+            "-movflags",
+            "+faststart",
+
             str(output_path)
         ]
 
@@ -3645,12 +4237,19 @@ def create_video(
 
             raise RuntimeError(
                 "FFmpeg failed:\n"
-                + result.stderr[-3000:]
+                + result.stderr[-4000:]
             )
 
-        # ----------------------------------------------------
-        # URLs
-        # ----------------------------------------------------
+        if not output_path.exists():
+
+            raise RuntimeError(
+                "FFmpeg completed but "
+                "the MP4 file was not created."
+            )
+
+        # ====================================================
+        # URLS
+        # ====================================================
 
         if backend_url:
 
@@ -3678,9 +4277,9 @@ def create_video(
                 + output_name
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # COMPLETE
-        # ----------------------------------------------------
+        # ====================================================
 
         update_job(
             job_id,
@@ -3693,11 +4292,16 @@ def create_video(
             duration=target_duration
         )
 
-        # Cleanup frames/audio after video creation
+        # ====================================================
+        # CLEAN TEMP FILES
+        # ====================================================
+
         try:
+
             shutil.rmtree(
                 work_dir
             )
+
         except Exception:
             pass
 
@@ -3711,47 +4315,17 @@ def create_video(
         )
 
         try:
+
             shutil.rmtree(
                 work_dir
             )
+
         except Exception:
             pass
 
 
 # ============================================================
-# JOB HELPERS
-# ============================================================
-
-def update_job(
-    job_id,
-    **updates
-):
-
-    with JOBS_LOCK:
-
-        if job_id not in JOBS:
-            JOBS[job_id] = {}
-
-        JOBS[job_id].update(
-            updates
-        )
-
-        JOBS[job_id]["updated_at"] = now()
-
-
-def get_job(job_id):
-
-    with JOBS_LOCK:
-        return dict(
-            JOBS.get(
-                job_id,
-                {}
-            )
-        )
-
-
-# ============================================================
-# API: GENERATE
+# API GENERATE
 # ============================================================
 
 @app.route(
@@ -3780,16 +4354,22 @@ def api_generate():
             )
         ).strip()
 
-        duration = int(
-            data.get(
-                "duration",
-                60
-            )
-        )
+        try:
 
-        # ----------------------------------------------------
+            duration = int(
+                data.get(
+                    "duration",
+                    60
+                )
+            )
+
+        except Exception:
+
+            duration = 60
+
+        # ====================================================
         # SCRIPT HAS PRIORITY
-        # ----------------------------------------------------
+        # ====================================================
 
         script = str(
             data.get(
@@ -3830,9 +4410,9 @@ def api_generate():
             3600
         )
 
-        # ----------------------------------------------------
-        # EXACT USER SCRIPT
-        # ----------------------------------------------------
+        # ====================================================
+        # EXACT SCRIPT
+        # ====================================================
 
         explicit_story = (
             parse_explicit_script(
@@ -3848,10 +4428,6 @@ def api_generate():
 
         else:
 
-            # ------------------------------------------------
-            # GEMINI
-            # ------------------------------------------------
-
             story = generate_story(
                 category,
                 user_input,
@@ -3859,9 +4435,9 @@ def api_generate():
                 language
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # JOB
-        # ----------------------------------------------------
+        # ====================================================
 
         job_id = uuid.uuid4().hex[:12]
 
@@ -3908,7 +4484,7 @@ def api_generate():
 
 
 # ============================================================
-# API: CREATE VIDEO
+# CREATE VIDEO
 # ============================================================
 
 @app.route(
@@ -3921,7 +4497,7 @@ def api_create_video():
 
 
 # ============================================================
-# API: STATUS
+# STATUS
 # ============================================================
 
 @app.route(
@@ -3947,7 +4523,6 @@ def api_video_status(job_id):
     })
 
 
-# Also support /api/status/<job>
 @app.route(
     "/api/status/<job_id>",
     methods=["GET"]
@@ -3960,7 +4535,7 @@ def api_status(job_id):
 
 
 # ============================================================
-# SERVE GENERATED VIDEO
+# VIDEO PREVIEW
 # ============================================================
 
 @app.route(
@@ -3969,15 +4544,27 @@ def api_status(job_id):
 )
 def generated_file(filename):
 
+    file_path = (
+        OUTPUT_DIR
+        / filename
+    )
+
+    if not file_path.exists():
+        return jsonify({
+            "success": False,
+            "error": "Video file not found."
+        }), 404
+
     return send_from_directory(
         OUTPUT_DIR,
         filename,
-        as_attachment=False
+        as_attachment=False,
+        mimetype="video/mp4"
     )
 
 
 # ============================================================
-# DOWNLOAD VIDEO
+# DOWNLOAD
 # ============================================================
 
 @app.route(
@@ -3986,10 +4573,24 @@ def generated_file(filename):
 )
 def download_file(filename):
 
+    file_path = (
+        OUTPUT_DIR
+        / filename
+    )
+
+    if not file_path.exists():
+
+        return jsonify({
+            "success": False,
+            "error": "Video file not found."
+        }), 404
+
     return send_from_directory(
         OUTPUT_DIR,
         filename,
-        as_attachment=True
+        as_attachment=True,
+        download_name=filename,
+        mimetype="video/mp4"
     )
 
 
@@ -4003,20 +4604,27 @@ def home():
     return jsonify({
         "name": "AfriToon Studio",
         "status": "running",
-        "engine": "Movie-style cartoon renderer",
+        "engine": "Movie-style 2D cartoon renderer",
         "features": [
             "Dynamic characters",
+            "Dynamic character names",
+            "Character consistency",
             "Room environments",
             "Walking",
             "Entering and leaving",
+            "Sitting",
+            "Standing",
             "Facing characters",
             "Talking animation",
             "Clothing changes",
             "Camera shots",
             "Exact dialogue scripts",
+            "Natural dialogue parsing",
             "Gemini story generation",
             "gTTS voice",
-            "FFmpeg MP4"
+            "FFmpeg MP4",
+            "Video preview",
+            "Phone download"
         ]
     })
 
@@ -4036,7 +4644,11 @@ def health():
         "gemini_configured": bool(
             GEMINI_API_KEY
         ),
-        "model": GEMINI_MODEL
+        "model": GEMINI_MODEL,
+        "fps": FPS,
+        "resolution": (
+            f"{WIDTH}x{HEIGHT}"
+        )
     })
 
 
