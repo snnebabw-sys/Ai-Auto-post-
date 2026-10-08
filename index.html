@@ -183,6 +183,14 @@ textarea {
     font-size: 13px;
     line-height: 1.5;
 }
+
+.error-text {
+    color: #b42318;
+}
+
+.success-text {
+    color: #18794e;
+}
 </style>
 </head>
 
@@ -198,6 +206,8 @@ textarea {
         </div>
     </div>
 
+
+    <!-- SETTINGS -->
 
     <div class="card">
 
@@ -235,7 +245,8 @@ textarea {
 
         <textarea
             id="topic"
-            placeholder="Describe your story idea, or leave this field empty."></textarea>
+            placeholder="Describe your story idea, or leave this field empty."
+        ></textarea>
 
 
         <label for="language">
@@ -252,14 +263,15 @@ textarea {
         <button
             id="createButton"
             class="primary-button"
-            onclick="createStory()">
-
+            onclick="createStory()"
+        >
             Create video
-
         </button>
 
     </div>
 
+
+    <!-- STATUS -->
 
     <div class="card">
 
@@ -267,18 +279,20 @@ textarea {
 
         <div
             id="status"
-            class="status">
-
+            class="status"
+        >
             Ready to create a video.
-
         </div>
 
     </div>
 
 
+    <!-- STORY -->
+
     <div
         class="card story-box"
-        id="storyBox">
+        id="storyBox"
+    >
 
         <h2>Story</h2>
 
@@ -287,26 +301,29 @@ textarea {
     </div>
 
 
+    <!-- VIDEO -->
+
     <div
         class="card video-box"
-        id="videoBox">
+        id="videoBox"
+    >
 
         <h2>Preview</h2>
 
         <video
             id="videoPreview"
             controls
-            playsinline>
-        </video>
+            playsinline
+            preload="metadata"
+        ></video>
 
 
         <a
             id="downloadButton"
             class="download-button"
-            download>
-
+            download
+        >
             Download video
-
         </a>
 
     </div>
@@ -326,9 +343,17 @@ textarea {
 
 <script>
 
+/* ============================================================
+   BACKEND
+============================================================ */
+
 const BACKEND_URL =
     "https://ai-auto-post-61wi.onrender.com";
 
+
+/* ============================================================
+   CREATE STORY
+============================================================ */
 
 async function createStory() {
 
@@ -339,7 +364,7 @@ async function createStory() {
         document.getElementById("duration").value;
 
     const topic =
-        document.getElementById("topic").value;
+        document.getElementById("topic").value.trim();
 
     const language =
         document.getElementById("language").value;
@@ -362,12 +387,16 @@ async function createStory() {
     button.textContent =
         "Creating...";
 
+
     storyBox.style.display =
         "none";
 
     videoBox.style.display =
         "none";
 
+
+    status.className =
+        "status";
 
     status.textContent =
         "Preparing your story...";
@@ -409,13 +438,14 @@ async function createStory() {
 
 
         const data =
-            await response.json();
+            await parseJSON(response);
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.error ||
+                data.message ||
                 "Unable to create the story."
             );
 
@@ -428,7 +458,7 @@ async function createStory() {
         ) {
 
             throw new Error(
-                "No story was returned."
+                "No story was returned by the server."
             );
 
         }
@@ -453,11 +483,20 @@ async function createStory() {
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "CREATE ERROR:",
+            error
+        );
+
+
+        status.className =
+            "status error-text";
+
 
         status.textContent =
             "Something went wrong.\n\n" +
             error.message;
+
 
     } finally {
 
@@ -472,6 +511,10 @@ async function createStory() {
 }
 
 
+/* ============================================================
+   CREATE VIDEO
+============================================================ */
+
 async function createVideo(
     story,
     duration
@@ -481,6 +524,10 @@ async function createVideo(
         document.getElementById(
             "status"
         );
+
+
+    status.className =
+        "status";
 
 
     status.textContent =
@@ -516,13 +563,20 @@ async function createVideo(
 
 
     const data =
-        await response.json();
+        await parseJSON(response);
+
+
+    console.log(
+        "CREATE VIDEO RESPONSE:",
+        data
+    );
 
 
     if (!response.ok) {
 
         throw new Error(
             data.error ||
+            data.message ||
             "Unable to start video creation."
         );
 
@@ -532,10 +586,15 @@ async function createVideo(
     if (!data.job_id) {
 
         throw new Error(
-            "No video job was created."
+            "The server did not return a video job ID."
         );
 
     }
+
+
+    status.textContent =
+        "Video job started.\n\n" +
+        "Rendering your video...";
 
 
     await monitorVideo(
@@ -544,6 +603,10 @@ async function createVideo(
 
 }
 
+
+/* ============================================================
+   MONITOR VIDEO
+============================================================ */
 
 async function monitorVideo(
     jobId
@@ -559,6 +622,8 @@ async function monitorVideo(
 
     const maxAttempts = 200;
 
+    const pollInterval = 2500;
+
 
     while (
         attempts <
@@ -572,88 +637,213 @@ async function monitorVideo(
             resolve =>
                 setTimeout(
                     resolve,
-                    2500
+                    pollInterval
                 )
         );
 
 
-        const response =
-            await fetch(
-                BACKEND_URL +
-                "/api/video-status/" +
-                encodeURIComponent(
-                    jobId
-                )
+        let response;
+
+
+        try {
+
+            response =
+                await fetch(
+                    BACKEND_URL +
+                    "/api/video-status/" +
+                    encodeURIComponent(
+                        jobId
+                    ),
+                    {
+                        method: "GET",
+                        cache: "no-store"
+                    }
+                );
+
+        } catch (networkError) {
+
+            console.error(
+                "STATUS NETWORK ERROR:",
+                networkError
             );
+
+            status.textContent =
+                "Waiting for the video server...\n\n" +
+                "Attempt " +
+                attempts +
+                " of " +
+                maxAttempts;
+
+            continue;
+
+        }
 
 
         const data =
-            await response.json();
+            await parseJSON(response);
+
+
+        console.log(
+            "VIDEO STATUS:",
+            data
+        );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.error ||
+                data.message ||
                 "Unable to check video progress."
             );
 
         }
 
 
+        /*
+         * PROCESSING
+         */
+
         if (
             data.status ===
-            "processing"
+            "processing" ||
+
+            data.status ===
+            "queued" ||
+
+            data.status ===
+            "rendering"
         ) {
+
+            const progress =
+                data.progress !== undefined
+                    ? "\nProgress: " +
+                      data.progress +
+                      "%"
+                    : "";
+
 
             status.textContent =
                 "Creating your video...\n\n" +
                 (
                     data.message ||
                     "Rendering scenes..."
-                );
+                ) +
+                progress;
+
+
+            continue;
 
         }
 
 
-        else if (
+        /*
+         * COMPLETED
+         */
+
+        if (
             data.status ===
-            "completed"
+            "completed" ||
+
+            data.status ===
+            "done" ||
+
+            data.status ===
+            "success"
         ) {
+
+            /*
+             * Accept several possible
+             * backend property names.
+             */
+
+            const videoUrl =
+                data.video_url ||
+                data.url ||
+                data.video ||
+                data.file_url;
+
+
+            if (!videoUrl) {
+
+                /*
+                 * Sometimes the backend may
+                 * report completed before
+                 * returning the URL.
+                 */
+
+                status.textContent =
+                    "Video finished.\n\n" +
+                    "Waiting for the video file...";
+
+                continue;
+
+            }
+
+
+            status.className =
+                "status success-text";
+
 
             status.textContent =
                 "Your video is ready.";
 
+
             showVideo(
-                data.video_url
+                videoUrl
             );
+
 
             return;
 
         }
 
 
-        else if (
+        /*
+         * FAILED
+         */
+
+        if (
             data.status ===
-            "failed"
+            "failed" ||
+
+            data.status ===
+            "error"
         ) {
 
             throw new Error(
                 data.error ||
+                data.message ||
                 "Video creation failed."
             );
 
         }
 
+
+        /*
+         * UNKNOWN STATUS
+         */
+
+        status.textContent =
+            "Creating your video...\n\n" +
+            (
+                data.message ||
+                "The server is still processing your request."
+            );
+
     }
 
 
     throw new Error(
-        "Video creation is taking longer than expected."
+        "Video creation is taking longer than expected. Please try again."
     );
 
 }
 
+
+/* ============================================================
+   SHOW VIDEO
+============================================================ */
 
 function showVideo(
     videoUrl
@@ -675,19 +865,54 @@ function showVideo(
         );
 
 
+    if (!videoUrl) {
+
+        throw new Error(
+            "No video URL was returned."
+        );
+
+    }
+
+
     let fullUrl;
 
 
+    /*
+     * Absolute URL
+     */
+
     if (
         videoUrl.startsWith(
-            "http"
+            "http://"
+        ) ||
+
+        videoUrl.startsWith(
+            "https://"
         )
     ) {
 
         fullUrl =
             videoUrl;
 
-    } else {
+    }
+
+
+    /*
+     * Relative URL
+     */
+
+    else {
+
+        if (
+            !videoUrl.startsWith("/")
+        ) {
+
+            videoUrl =
+                "/" +
+                videoUrl;
+
+        }
+
 
         fullUrl =
             BACKEND_URL +
@@ -696,23 +921,115 @@ function showVideo(
     }
 
 
+    console.log(
+        "VIDEO URL:",
+        fullUrl
+    );
+
+
+    /*
+     * Reset previous video
+     */
+
+    video.pause();
+
+    video.removeAttribute(
+        "src"
+    );
+
+    video.load();
+
+
+    /*
+     * Set new video
+     */
+
     video.src =
         fullUrl;
+
 
     download.href =
         fullUrl;
 
 
+    download.setAttribute(
+        "download",
+        ""
+    );
+
+
+    /*
+     * Show video box
+     */
+
     videoBox.style.display =
         "block";
 
 
-    videoBox.scrollIntoView({
-        behavior: "smooth"
-    });
+    /*
+     * Scroll to video
+     */
+
+    setTimeout(
+        () => {
+
+            videoBox.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+
+        },
+        100
+    );
+
+
+    /*
+     * Check whether video can load
+     */
+
+    video.onerror =
+        function () {
+
+            console.error(
+                "VIDEO LOAD ERROR:",
+                fullUrl
+            );
+
+
+            const status =
+                document.getElementById(
+                    "status"
+                );
+
+
+            status.className =
+                "status error-text";
+
+
+            status.textContent =
+                "The video was created, but the browser could not load the video file.\n\n" +
+                "Video URL:\n" +
+                fullUrl;
+
+        };
+
+
+    video.onloadedmetadata =
+        function () {
+
+            console.log(
+                "VIDEO LOADED:",
+                fullUrl
+            );
+
+        };
 
 }
 
+
+/* ============================================================
+   DISPLAY STORY
+============================================================ */
 
 function displayStory(
     story
@@ -742,7 +1059,9 @@ function displayStory(
     `;
 
 
-    if (story.description) {
+    if (
+        story.description
+    ) {
 
         html += `
             <p>
@@ -754,6 +1073,10 @@ function displayStory(
 
     }
 
+
+    /*
+     * CHARACTERS
+     */
 
     if (
         story.characters &&
@@ -777,7 +1100,8 @@ function displayStory(
 
                         <strong>
                             ${escapeHTML(
-                                character.name
+                                character.name ||
+                                "Character"
                             )}
                         </strong>
 
@@ -806,6 +1130,10 @@ function displayStory(
     }
 
 
+    /*
+     * SCENES
+     */
+
     if (
         story.scenes &&
         Array.isArray(
@@ -830,7 +1158,8 @@ function displayStory(
                         <strong>
                             Scene
                             ${escapeHTML(
-                                scene.scene
+                                scene.scene ||
+                                ""
                             )}
                         </strong>
 
@@ -850,6 +1179,10 @@ function displayStory(
                 `;
 
 
+                /*
+                 * DIALOGUE
+                 */
+
                 if (
                     scene.dialogue &&
                     Array.isArray(
@@ -865,13 +1198,15 @@ function displayStory(
 
                                     <strong>
                                         ${escapeHTML(
-                                            line.character
+                                            line.character ||
+                                            ""
                                         )}
                                     </strong>
 
                                     :
                                     ${escapeHTML(
-                                        line.line
+                                        line.line ||
+                                        ""
                                     )}
 
                                     <br>
@@ -906,11 +1241,58 @@ function displayStory(
     storyContent.innerHTML =
         html;
 
+
     storyBox.style.display =
         "block";
 
 }
 
+
+/* ============================================================
+   SAFE JSON RESPONSE
+============================================================ */
+
+async function parseJSON(
+    response
+) {
+
+    const text =
+        await response.text();
+
+
+    if (!text) {
+
+        return {};
+
+    }
+
+
+    try {
+
+        return JSON.parse(
+            text
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Invalid JSON response:",
+            text
+        );
+
+
+        throw new Error(
+            "The server returned an invalid response."
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   ESCAPE HTML
+============================================================ */
 
 function escapeHTML(
     value
